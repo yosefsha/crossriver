@@ -1,0 +1,54 @@
+
+services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--providers.docker=true"
+      - "--log.level=DEBUG"
+      - "--api.dashboard=true"
+      - "--api=true"
+      - "--api.insecure=true" # This allows dashboard without defining a custom router
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.traefik.address=:8080"
+    ports:
+      - "80:80"       # Map port 80 for HTTP traffic
+      - "8080:8080"   # Expose port 8080 for Traefik dashboard
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock" # Access Docker socket
+    networks:
+      - app-network
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    volumes:
+      - ./dynamodb-data:/data  # Optional: Persist data to local directory
+    command: -jar DynamoDBLocal.jar -sharedDb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dynamodb.rule=PathPrefix(`/dynamodb`)"
+      - "traefik.http.routers.dynamodb.entrypoints=web"
+      - "traefik.http.services.dynamodb.loadbalancer.server.port=8000"  # Internal port of DynamoDB Local
+    networks:
+      - app-network
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin  # Docker image for DynamoDB Admin
+    environment:
+      - AWS_REGION=eu-west-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - DYNAMO_ENDPOINT=http://dynamodb:8000  # Connection to DynamoDB Local
+    depends_on:
+      - dynamodb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dynamodb-admin.rule=PathPrefix(`/dbadmin`)"
+      - "traefik.http.routers.dynamodb-admin.entrypoints=web"
+      - "traefik.http.routers.dynamodb-admin.middlewares=dynamodb-admin-stripprefix"
+      - "traefik.http.middlewares.dynamodb-admin-stripprefix.stripprefix.prefixes=/dbadmin"
+      - "traefik.http.services.dynamodb-admin.loadbalancer.server.port=8001"  # Internal port of the container
+    networks:
+      - app-network
+
+networks:
+  app-network:
