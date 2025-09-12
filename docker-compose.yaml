@@ -50,5 +50,18 @@ services:
     networks:
       - app-network
 
+  client:
+    build:
+      context: ./client  # Path to your React app directory
+      args:
+        API_URL: /api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.priority=1"
+      - "traefik.http.routers.client.rule=PathPrefix(`/`)"
+      - "traefik.http.services.client.loadbalancer.server.port=80"  # Internal port of the React app
+    networks:
+      - app-network
+
 networks:
   app-network:
