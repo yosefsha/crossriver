@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/dist/main.js",
+      "cwd": "${workspaceFolder}/server",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "restart": true,
+      "runtimeArgs": ["--nolazy"],
+      "sourceMaps": true,
+      "stopOnEntry": false,
+      "preLaunchTask": "build-server"
+    },
+    {
+      "name": "Debug Server (Development)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/src/main.ts",
+      "cwd": "${workspaceFolder}/server",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "restart": true,
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "sourceMaps": true,
+      "stopOnEntry": false
+    },
+    {
+      "name": "Debug Auth Service",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/auth/dist/main.js",
+      "cwd": "${workspaceFolder}/auth",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "restart": true,
+      "sourceMaps": true
+    }
+  ]
+}

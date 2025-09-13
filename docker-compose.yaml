@@ -70,7 +70,34 @@ services:
     networks:
       - app-network
     volumes:
-      - ./server:/app
+      - ./server/src:/app/src
+      - ./server/package.json:/app/package.json
+      - ./server/tsconfig.json:/app/tsconfig.json
+      - ./server/tsconfig.build.json:/app/tsconfig.build.json
+      - ./server/nest-cli.json:/app/nest-cli.json
+    command: npm run start:dev
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=http://dynamodb:8000
+    depends_on:
+      - dynamodb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.routers.auth.middlewares=auth-stripprefix"
+      - "traefik.http.middlewares.auth-stripprefix.stripprefix.prefixes=/auth"
+      - "traefik.http.services.auth.loadbalancer.server.port=3001"
+    networks:
+      - app-network
+    volumes:
+      - ./auth:/app
       - /app/node_modules
     command: npm run start:dev
 

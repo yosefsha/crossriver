@@ -14,21 +14,9 @@ export class AppController {
   getHealth() {
     return {
       status: 'ok',
+      service: 'auth',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
-    };
-  }
-
-  @Get('foo')
-  getFoo() {
-    return {
-      message: 'Hello from foo endpoint!',
-      data: {
-        id: 1,
-        name: 'Foo Item',
-        description: 'This is a simple foo endpoint response',
-        timestamp: new Date().toISOString()
-      }
     };
   }
 }

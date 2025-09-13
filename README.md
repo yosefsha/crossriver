@@ -171,4 +171,14 @@ docker-compose logs -f <service-name>
 
 # Check running containers
 docker-compose ps
+
+
+explain the suggested flow . 
+1. client calls api register with name email and password
+2. main server recerives register request forwards to users service 
+3. user service save credentials in db
+4. return success to client
+5. now client can login. client posts login request with email and password
+6. 
+
 ```

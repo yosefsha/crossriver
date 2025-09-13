@@ -13,8 +13,11 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Build the application
+RUN npm run build
 
-# Start the application in development mode
-CMD ["npm", "run", "start:dev"]
+# Expose port
+EXPOSE 3001
+
+# Start the application
+CMD ["npm", "run", "start:prod"]
