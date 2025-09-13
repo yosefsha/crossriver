@@ -50,6 +50,30 @@ services:
     networks:
       - app-network
 
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=http://dynamodb:8000
+    depends_on:
+      - dynamodb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.server.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.server.entrypoints=web"
+      - "traefik.http.routers.server.middlewares=server-stripprefix"
+      - "traefik.http.middlewares.server-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.services.server.loadbalancer.server.port=3000"
+    networks:
+      - app-network
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    command: npm run start:dev
+
   client:
     build:
       context: ./client  # Path to your React app directory
