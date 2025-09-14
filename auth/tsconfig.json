@@ -10,15 +10,16 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "useDefineForClassFields": false,
+    "types": ["jest", "node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+  "include": ["src/**/*", "src/types/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
