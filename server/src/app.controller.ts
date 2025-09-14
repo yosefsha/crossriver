@@ -31,4 +31,17 @@ export class AppController {
       }
     };
   }
+
+  @Get('bar')
+  getBar() {
+    return {
+      message: 'Hello from bar endpoint!',
+      data: {
+        id: 2,
+        name: 'Bar Item',
+        description: 'This is a simple bar endpoint response',
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
 }
