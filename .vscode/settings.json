@@ -1,0 +1,6 @@
+{
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "jest.autoRun": "off",
+  "typescript.validate.enable": true
+}
