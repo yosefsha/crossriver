@@ -70,8 +70,8 @@ export class AuthService {
       email: user.email,
       roles: user.roles,
       scopes: this.getUserScopes(user.roles),
-      iss: 'crossriver-auth',
-      aud: ['crossriver-server', 'crossriver-client'],
+      iss: 'myassistant-auth',
+      aud: ['myassistant-server', 'myassistant-client'],
     };
 
     // TODO: Replace with actual JWT token generation using this.jwtService
