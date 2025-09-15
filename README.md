@@ -1,4 +1,4 @@
-# CrossRiver Application
+# MyAssistant Application
 
 A full-stack application with React frontend, NestJS backend, and DynamoDB database, all orchestrated with Docker Compose and Traefik for routing.
 
@@ -86,7 +86,7 @@ JWKS_URI=http://auth:3001/.well-known/jwks.json
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd crossriver
+   cd myassistant
    ```
 
 2. **Start all services**
@@ -121,7 +121,7 @@ docker-compose logs -f client
 ## Project Structure
 
 ```
-crossriver/
+myassistant/
 ├── client/                 # React frontend
 │   ├── src/
 │   ├── public/
@@ -209,6 +209,6 @@ explain the suggested flow .
 3. user service save credentials in db
 4. return success to client
 5. now client can login. client posts login request with email and password
-6. 
+6. server gets request and forwards to auth service
 
 ```
