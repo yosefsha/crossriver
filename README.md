@@ -8,9 +8,39 @@ This application consists of:
 
 1. **DynamoDB** - Local DynamoDB instance for data storage
 2. **DynamoDB Admin GUI** - Web interface for managing DynamoDB tables and data
-3. **React App** - Frontend client application
-4. **NestJS App** - Backend API server with TypeScript
-5. **Traefik** - Reverse proxy for routing and load balancing
+3. **Auth Service** - JWT authentication microservice
+4. **Server Service** - Main API server with authentication
+5. **React App** - Frontend client application
+6. **Traefik** - Reverse proxy for routing and load balancing
+
+## Authentication System (JWT + JWKS)
+
+### Architecture
+- **Auth Service**: Issues RS256 JWTs and serves JWKS endpoint
+- **Other Services**: Verify tokens using JWKS URI with caching
+- **Role-based Access**: Guards enforce roles/scopes on endpoints
+
+### Endpoints
+**Auth Service:**
+- `POST /register` - User registration
+- `POST /login` - User authentication  
+- `GET /.well-known/jwks.json` - Public keys for token verification
+
+**Protected Endpoints:**
+- Require `Authorization: Bearer <token>` header
+- Support role-based access control (admin, user)
+- Automatic token validation via JWKS
+
+### Environment Variables
+```env
+# Auth Service
+PORT=3001
+JWKS_URI=http://localhost:3001/.well-known/jwks.json
+
+# Server Service  
+PORT=3000
+JWKS_URI=http://auth:3001/.well-known/jwks.json
+```
 
 ## Services
 

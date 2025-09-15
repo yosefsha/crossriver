@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException,BadRequestException, ConflictException } from '@nestjs/common';
 // import { JwtService } from '@nestjs/jwt';
 import { JwtKeyService } from './jwt-key.service';
+import { UserRepository } from '../database/user.repository';
 import { 
   JwtPayload, 
   LoginRequest, 
@@ -12,64 +13,33 @@ import {
 
 @Injectable()
 export class AuthService {
-  // Mock user storage - replace with actual database
-  private users: User[] = [
-    {
-      id: '1',
-      email: 'user@example.com',
-      password: 'password', // In real app, this should be hashed
-      username: 'johndoe',
-      roles: ['user'],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '2',
-      email: 'admin@example.com',
-      password: 'password', // In real app, this should be hashed
-      username: 'adminuser',
-      roles: ['admin', 'user'],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '3',
-      email: 'testuser@abc.com',
-      password: 'testpassword', // For e2e tests
-      username: 'testuser',
-      roles: ['user'],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
-
   constructor(
     // private jwtService: JwtService,
     private jwtKeyService: JwtKeyService,
+    private userRepository: UserRepository,
   ) {}
 
   async register(registerRequest: RegisterRequest): Promise<RegisterResponse> {
-    // Check if user already exists
-    // check that username email and password are provided
+    // Check that username, email and password are provided
     if (!registerRequest.email || !registerRequest.password || !registerRequest.username) {
       throw new BadRequestException('Email, password, and username are required');
     }
-    const existingUser = this.users.find(user => user.email === registerRequest.email);
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findUserByEmail(registerRequest.email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
-    // Create new user
-    const newUser: User = {
-      id: (this.users.length + 1).toString(),
+
+    // Create new user (createdAt and updatedAt will be set by the repository)
+    const newUser = await this.userRepository.createUser({
       email: registerRequest.email,
       password: registerRequest.password, // TODO: Hash password with bcrypt
       username: registerRequest.username,
       roles: registerRequest.roles || ['user'],
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
-
-    this.users.push(newUser);
+    });
 
     return {
       success: true,
@@ -121,7 +91,7 @@ export class AuthService {
   }
 
   private async validateUser(email: string, password: string): Promise<User | null> {
-    const user = this.users.find(u => u.email === email);
+    const user = await this.userRepository.findUserByEmail(email);
     if (user && user.password === password) { // TODO: Use bcrypt.compare
       return user;
     }

@@ -1,0 +1,8 @@
+# Test-specific docker-compose override
+# This adds direct port access to DynamoDB for testing without affecting Traefik setup
+version: '3.8'
+
+services:
+  dynamodb:
+    ports:
+      - "8000:8000"  # Direct access for testing only

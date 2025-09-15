@@ -27,6 +27,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dynamodb.rule=PathPrefix(`/dynamodb`)"
       - "traefik.http.routers.dynamodb.entrypoints=web"
+      - "traefik.http.routers.dynamodb.middlewares=dynamodb-stripprefix"
+      - "traefik.http.middlewares.dynamodb-stripprefix.stripprefix.prefixes=/dynamodb"
       - "traefik.http.services.dynamodb.loadbalancer.server.port=8000"  # Internal port of DynamoDB Local
     networks:
       - app-network
