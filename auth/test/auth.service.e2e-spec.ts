@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import 'jest';
 
 import { AppModule } from '../src/app.module';
+import { AuthService } from '../src/services/auth.service';
 import { generateRandomString, dynamoTestHelper } from './helpers';
 
 describe('Auth Service (e2e)', () => {
@@ -162,6 +163,65 @@ describe('Auth Service (e2e)', () => {
         .post('/register')
         .send(userData)
         .expect(409);
+    });
+  });
+
+  describe('JWT Token Verification', () => {
+    let authService: AuthService;
+
+    beforeEach(async () => {
+      authService = app.get(AuthService);
+    });
+
+    it('should verify a valid JWT token', async () => {
+      const testEmail = 'verify1@example.com';
+      const testPassword = 'password123';
+      
+      // Create test user
+      await request(app.getHttpServer())
+        .post('/register')
+        .send({
+          email: testEmail,
+          password: testPassword,
+          username: 'verifyuser1',
+        })
+        .expect(201);
+
+      // Login to get a token
+      const loginResponse = await request(app.getHttpServer())
+        .post('/login')
+        .send({ email: testEmail, password: testPassword })
+        .expect(200);
+
+      const token = loginResponse.body.access_token;
+      expect(token).toBeDefined();
+      expect(typeof token).toBe('string');
+
+      // Verify the token using the service
+      const payload = await authService.verifyToken(token);
+      
+      expect(payload).toBeDefined();
+      expect(payload.email).toBe(testEmail);
+      expect(payload.iss).toBe('myassistant-auth');
+      expect(payload.aud).toEqual(['myassistant-server', 'myassistant-client']);
+      expect(payload.roles).toEqual(['user']);
+      expect(payload.scopes).toEqual(['read:own', 'write:own']);
+    });
+
+    it('should throw UnauthorizedException for invalid token', async () => {
+      const invalidToken = 'invalid.jwt.token';
+      
+      await expect(authService.verifyToken(invalidToken))
+        .rejects
+        .toThrow('Invalid or expired token');
+    });
+
+    it('should throw UnauthorizedException for malformed token', async () => {
+      const malformedToken = 'not-a-jwt-token';
+      
+      await expect(authService.verifyToken(malformedToken))
+        .rejects
+        .toThrow('Invalid or expired token');
     });
   });
 });

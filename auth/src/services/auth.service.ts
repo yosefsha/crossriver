@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException,BadRequestException, ConflictException } from '@nestjs/common';
-// import { JwtService } from '@nestjs/jwt';
+import { JwtService } from '@nestjs/jwt';
 import { JwtKeyService } from './jwt-key.service';
 import { UserRepository } from '../database/user.repository';
 import { 
@@ -14,7 +14,7 @@ import {
 @Injectable()
 export class AuthService {
   constructor(
-    // private jwtService: JwtService,
+    private jwtService: JwtService,
     private jwtKeyService: JwtKeyService,
     private userRepository: UserRepository,
   ) {}
@@ -74,8 +74,10 @@ export class AuthService {
       aud: ['myassistant-server', 'myassistant-client'],
     };
 
-    // TODO: Replace with actual JWT token generation using this.jwtService
-    const token = 'mock-jwt-token-' + Date.now();
+    // Generate actual JWT token using JwtService
+    const token = this.jwtService.sign(payload, {
+      keyid: this.jwtKeyService.getKeyId(),
+    });
 
     return {
       access_token: token,
@@ -105,5 +107,13 @@ export class AuthService {
     };
 
     return roles.flatMap(role => scopeMap[role] || []);
+  }
+
+  async verifyToken(token: string): Promise<JwtPayload> {
+    try {
+      return this.jwtService.verify<JwtPayload>(token);
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
   }
 }
