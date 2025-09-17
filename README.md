@@ -22,14 +22,52 @@ This application consists of:
 
 ### Endpoints
 **Auth Service:**
-- `POST /register` - User registration
-- `POST /login` - User authentication  
-- `GET /.well-known/jwks.json` - Public keys for token verification
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User authentication  
+- `GET /auth/.well-known/jwks.json` - Public keys for token verification
 
 **Protected Endpoints:**
 - Require `Authorization: Bearer <token>` header
 - Support role-based access control (admin, user)
 - Automatic token validation via JWKS
+
+### Architecture Decision: Direct Auth Routing vs Server Forwarding
+
+We chose to route authentication requests **directly to the auth service via Traefik** rather than forwarding through the main server service.
+
+#### Option 1: Server Forwarding (Rejected)
+```
+Client → Server Service → Auth Service
+       (POST /api/auth/login)    (internal call)
+```
+
+**Why we rejected this approach:**
+- ❌ **Coupling**: Server service becomes coupled to auth service
+- ❌ **Single Point of Failure**: Server service must handle auth routing
+- ❌ **Performance**: Extra network hop adds latency
+- ❌ **Complexity**: Server service needs auth-specific routing logic
+- ❌ **Violates Single Responsibility**: Server service handles business logic AND auth routing
+
+#### Option 2: Direct Traefik Routing (Chosen) ✅
+```
+Client → Traefik → Auth Service (POST /auth/login)
+                → Server Service (POST /api/*)
+```
+
+**Why we chose this approach:**
+- ✅ **Microservices Best Practice**: Clean service separation
+- ✅ **Performance**: Direct routing, no extra hops
+- ✅ **Scalability**: Each service scales independently
+- ✅ **Single Responsibility**: Auth service only handles auth, server service only handles business logic
+- ✅ **Production Ready**: Standard API gateway pattern
+- ✅ **Fault Isolation**: Auth service failure doesn't affect other services
+- ✅ **Easy Maintenance**: Changes to auth don't require server service updates
+
+#### Implementation Benefits
+- **Client Simplicity**: Single API endpoint (`localhost`) with clear path prefixes
+- **Service Independence**: Auth and server services are completely decoupled
+- **Operational Excellence**: Each service can be deployed, scaled, and monitored independently
+- **Security**: Authentication logic is isolated and specialized
 
 ### Environment Variables
 ```env

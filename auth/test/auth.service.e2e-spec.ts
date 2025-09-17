@@ -174,7 +174,7 @@ describe('Auth Service (e2e)', () => {
     });
 
     it('should verify a valid JWT token', async () => {
-      const testEmail = 'verify1@example.com';
+      const testEmail = `verify${generateRandomString(4)}@example.com`;
       const testPassword = 'password123';
       
       // Create test user
