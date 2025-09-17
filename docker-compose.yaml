@@ -109,6 +109,35 @@ services:
       - /app/node_modules
     command: npm run start:dev
 
+  agentrouter:
+    build:
+      context: ./agentrouter
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agentrouter.rule=PathPrefix(`/agents`)"
+      - "traefik.http.routers.agentrouter.entrypoints=web"
+      - "traefik.http.routers.agentrouter.priority=100"
+      - "traefik.http.routers.agentrouter.middlewares=agentrouter-stripprefix"
+      - "traefik.http.middlewares.agentrouter-stripprefix.stripprefix.prefixes=/agents"
+      - "traefik.http.services.agentrouter.loadbalancer.server.port=3002"
+    networks:
+      - app-network
+    volumes:
+      - ./agentrouter/src:/app/src
+      - ./agentrouter/package.json:/app/package.json
+      - ./agentrouter/tsconfig.json:/app/tsconfig.json
+      - ./agentrouter/tsconfig.build.json:/app/tsconfig.build.json
+      - ./agentrouter/nest-cli.json:/app/nest-cli.json
+    command: npm run start:dev
+
   client:
     build:
       context: ./client  # Path to your React app directory
