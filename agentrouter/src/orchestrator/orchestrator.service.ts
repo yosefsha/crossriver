@@ -33,7 +33,7 @@ export class OrchestratorService {
    * 
    * @param query - The user's question or request
    * @param sessionId - Unique session identifier for context tracking
-   * @param context - Optional conversation history and state
+   * @param context - Optional conversation history and state (now auto-managed)
    * @returns Promise<OrchestrationResponse> - Complete response with routing metadata
    */
   async orchestrateQuery(
@@ -44,15 +44,22 @@ export class OrchestratorService {
     this.logger.log(`🎯 Orchestrating query: "${query}" for session: ${sessionId}`);
 
     try {
-      // STEP 1: QUERY ANALYSIS
+      // STEP 1: CONTEXT MANAGEMENT
+      // Get or create conversation context for this session
+      const managedContext = await this.getOrCreateContext(sessionId, query);
+      
+      // Use provided context if available, otherwise use managed context
+      const activeContext = context || managedContext;
+
+      // STEP 2: QUERY ANALYSIS
       // Analyze the query to determine the best specialized agent
       // This involves keyword matching, domain scoring, and context analysis
-      const analysis = await this.analyzeQuery(query, context);
+      const analysis = await this.analyzeQuery(query, activeContext);
       
       this.logger.log(`📊 Query analysis completed. Selected agent: ${analysis.selected_agent}`);
       this.logger.log(`📈 Confidence scores: ${JSON.stringify(analysis.confidence_scores)}`);
 
-      // STEP 2: AGENT LOOKUP
+      // STEP 3: AGENT LOOKUP
       // Find the configuration for the selected specialized agent
       const selectedAgent = this.config.specialized_agents.find(
         agent => agent.id === analysis.selected_agent
@@ -62,18 +69,17 @@ export class OrchestratorService {
         throw new Error(`Selected agent ${analysis.selected_agent} not found in configuration`);
       }
 
-      // STEP 3: AGENT INVOCATION
-      // Invoke the selected specialized agent with the original query
-      // Context is passed along to maintain conversation continuity
-      const agentResponse = await this.invokeSpecializedAgent(
+      // STEP 4: CONTEXT-AWARE AGENT INVOCATION
+      // Invoke the selected specialized agent with enhanced context
+      const agentResponse = await this.invokeSpecializedAgentWithContext(
         selectedAgent,
         query,
         sessionId,
         analysis,
-        context
+        activeContext
       );
 
-      // STEP 4: RESPONSE PACKAGING
+      // STEP 5: RESPONSE PACKAGING
       // Package the response with full routing metadata for transparency
       const orchestrationResponse: OrchestrationResponse = {
         response: agentResponse.response,
@@ -81,8 +87,12 @@ export class OrchestratorService {
         agent_name: selectedAgent.name,
         routing_analysis: analysis,
         session_id: sessionId,
-        context_maintained: !!context
+        context_maintained: true
       };
+
+      // STEP 6: CONTEXT UPDATE
+      // Update the conversation context with this exchange
+      await this.updateConversationContext(sessionId, query, orchestrationResponse);
 
       this.logger.log(`✅ Orchestration completed successfully for agent: ${selectedAgent.name}`);
       return orchestrationResponse;
@@ -143,7 +153,7 @@ export class OrchestratorService {
     // ANALYSIS RESULT PACKAGING
     const analysis: QueryAnalysis = {
       original_query: query,
-      analyzed_intent: this.extractIntent(queryLower),
+      analyzed_intent: this.extractIntent(queryLower, context),
       confidence_scores: confidenceScores,
       selected_agent: meetsThreshold ? selectedAgent.agentId : (this.config.fallback_agent_id || 'general-assistant'),
       reasoning: this.generateReasoningExplanation(selectedAgent, confidenceScores, meetsThreshold),
@@ -286,37 +296,174 @@ export class OrchestratorService {
   }
 
   /**
-   * Intent Classification Engine
+   * Advanced Intent Classification Engine
    * 
-   * Classifies the user's query into high-level intent categories.
-   * This helps provide additional context for routing decisions and
-   * can be used for analytics and improvement.
+   * Enhanced classification system that uses multiple techniques:
+   * 1. Pattern matching with weighted scoring
+   * 2. Question type detection (what, how, why, etc.)
+   * 3. Action verb identification
+   * 4. Context-aware classification
    * 
    * @param queryLower - Normalized query text
-   * @returns string - Classified intent category
+   * @param context - Optional conversation context for better classification
+   * @returns string - Classified intent category with confidence
    */
-  private extractIntent(queryLower: string): string {
-    // INTENT PATTERN MAPPING
-    // Maps intent categories to trigger words commonly used in that type of request
+  private extractIntent(queryLower: string, context?: OrchestrationContext): string {
+    // ENHANCED INTENT PATTERN MAPPING
+    // Each intent now has weighted patterns and specific indicators
     const intentPatterns = {
-      'help_request': ['help', 'assist', 'support', 'guide', 'how to', 'can you'],
-      'creation_request': ['create', 'build', 'make', 'develop', 'generate', 'design', 'write'],
-      'analysis_request': ['analyze', 'examine', 'review', 'assess', 'evaluate', 'compare'],
-      'learning_request': ['learn', 'understand', 'explain', 'teach', 'show', 'what is', 'why'],
-      'troubleshooting': ['fix', 'debug', 'solve', 'resolve', 'error', 'problem', 'issue', 'broken'],
-      'optimization_request': ['improve', 'optimize', 'enhance', 'better', 'faster', 'efficient'],
-      'planning_request': ['plan', 'strategy', 'roadmap', 'schedule', 'timeline', 'approach']
+      'help_request': {
+        primary: ['help', 'assist', 'support', 'guide'],
+        secondary: ['can you', 'could you', 'would you', 'please'],
+        questions: ['how to', 'how do i', 'how can i'],
+        weight: 1.0
+      },
+      'creation_request': {
+        primary: ['create', 'build', 'make', 'develop', 'generate', 'design', 'write', 'implement'],
+        secondary: ['new', 'from scratch', 'custom', 'prototype'],
+        questions: ['how to create', 'how to build', 'how to make'],
+        weight: 1.2
+      },
+      'analysis_request': {
+        primary: ['analyze', 'examine', 'review', 'assess', 'evaluate', 'compare', 'study'],
+        secondary: ['performance', 'metrics', 'data', 'results'],
+        questions: ['what are', 'which is', 'how does', 'why does'],
+        weight: 1.1
+      },
+      'learning_request': {
+        primary: ['learn', 'understand', 'explain', 'teach', 'show', 'clarify'],
+        secondary: ['concept', 'theory', 'basics', 'fundamentals'],
+        questions: ['what is', 'what are', 'why', 'how does', 'when'],
+        weight: 1.0
+      },
+      'troubleshooting': {
+        primary: ['fix', 'debug', 'solve', 'resolve', 'repair', 'troubleshoot'],
+        secondary: ['error', 'problem', 'issue', 'broken', 'failing', 'not working'],
+        questions: ['why is', 'why does', 'what\'s wrong', 'how to fix'],
+        weight: 1.3
+      },
+      'optimization_request': {
+        primary: ['improve', 'optimize', 'enhance', 'refactor', 'upgrade'],
+        secondary: ['better', 'faster', 'efficient', 'performance', 'speed'],
+        questions: ['how to improve', 'how to optimize', 'how to make better'],
+        weight: 1.1
+      },
+      'planning_request': {
+        primary: ['plan', 'strategy', 'roadmap', 'schedule', 'organize'],
+        secondary: ['timeline', 'approach', 'methodology', 'steps'],
+        questions: ['how should', 'what should', 'when should', 'where should'],
+        weight: 1.0
+      },
+      'comparison_request': {
+        primary: ['compare', 'versus', 'vs', 'difference', 'similar', 'alternative'],
+        secondary: ['better', 'worse', 'pros', 'cons', 'advantages'],
+        questions: ['which is', 'what\'s the difference', 'which should'],
+        weight: 1.0
+      },
+      'recommendation_request': {
+        primary: ['recommend', 'suggest', 'advise', 'propose'],
+        secondary: ['best', 'ideal', 'suitable', 'appropriate'],
+        questions: ['what should', 'which should', 'what would you'],
+        weight: 1.0
+      }
     };
 
-    // INTENT DETECTION
-    // Find the first intent category that matches patterns in the query
+    // MULTI-FACTOR INTENT SCORING
+    const intentScores: { [intent: string]: number } = {};
+
     for (const [intent, patterns] of Object.entries(intentPatterns)) {
-      if (patterns.some(pattern => queryLower.includes(pattern))) {
-        return intent;
+      let score = 0;
+
+      // Primary patterns (high weight)
+      const primaryMatches = patterns.primary.filter(pattern => queryLower.includes(pattern));
+      score += primaryMatches.length * 3;
+
+      // Secondary patterns (medium weight)
+      const secondaryMatches = patterns.secondary.filter(pattern => queryLower.includes(pattern));
+      score += secondaryMatches.length * 2;
+
+      // Question patterns (high weight for specific question types)
+      const questionMatches = patterns.questions.filter(pattern => queryLower.includes(pattern));
+      score += questionMatches.length * 4;
+
+      // Apply intent-specific weight multiplier
+      score *= patterns.weight;
+
+      // Context bonus: if previous conversation was similar intent, small boost
+      if (context?.routing_decisions?.length > 0) {
+        const lastIntent = context.routing_decisions[context.routing_decisions.length - 1]?.analyzed_intent;
+        if (lastIntent === intent) {
+          score += 0.5; // Small continuity bonus
+        }
+      }
+
+      intentScores[intent] = score;
+    }
+
+    // ADVANCED QUESTION TYPE DETECTION
+    const questionTypeBonus = this.analyzeQuestionType(queryLower);
+    for (const [intent, bonus] of Object.entries(questionTypeBonus)) {
+      if (intentScores[intent]) {
+        intentScores[intent] += bonus;
       }
     }
 
-    return 'general_inquiry'; // Default fallback intent
+    // SELECT HIGHEST SCORING INTENT
+    const bestIntent = Object.entries(intentScores)
+      .reduce((best, [intent, score]) => 
+        score > best.score ? { intent, score } : best,
+        { intent: 'general_inquiry', score: 0 }
+      );
+
+    // CONFIDENCE THRESHOLD
+    // Only return specific intent if confidence is sufficient
+    return bestIntent.score >= 2 ? bestIntent.intent : 'general_inquiry';
+  }
+
+  /**
+   * Question Type Analysis
+   * 
+   * Analyzes the grammatical structure of questions to provide
+   * additional intent classification hints.
+   * 
+   * @param queryLower - Normalized query text
+   * @returns Object with intent bonuses based on question patterns
+   */
+  private analyzeQuestionType(queryLower: string): { [intent: string]: number } {
+    const bonuses: { [intent: string]: number } = {};
+
+    // QUESTION WORD ANALYSIS
+    const questionPatterns = {
+      'what': ['learning_request', 'analysis_request'],
+      'how': ['help_request', 'creation_request', 'troubleshooting'],
+      'why': ['learning_request', 'troubleshooting'],
+      'when': ['planning_request', 'learning_request'],
+      'where': ['learning_request', 'planning_request'],
+      'which': ['comparison_request', 'recommendation_request'],
+      'who': ['learning_request'],
+      'can': ['help_request', 'creation_request'],
+      'should': ['recommendation_request', 'planning_request'],
+      'would': ['recommendation_request', 'comparison_request']
+    };
+
+    for (const [questionWord, relatedIntents] of Object.entries(questionPatterns)) {
+      if (queryLower.startsWith(questionWord) || queryLower.includes(` ${questionWord} `)) {
+        relatedIntents.forEach(intent => {
+          bonuses[intent] = (bonuses[intent] || 0) + 1;
+        });
+      }
+    }
+
+    // SENTENCE STRUCTURE ANALYSIS
+    if (queryLower.includes('?')) {
+      bonuses['learning_request'] = (bonuses['learning_request'] || 0) + 0.5;
+    }
+
+    if (queryLower.includes('please') || queryLower.includes('could you')) {
+      bonuses['help_request'] = (bonuses['help_request'] || 0) + 1;
+    }
+
+    return bonuses;
   }
 
   /**
@@ -380,7 +527,239 @@ export class OrchestratorService {
   }
 
   /**
-   * Specialized Agent Invocation
+   * Enhanced Specialized Agent Invocation with Context
+   * 
+   * This method handles the actual invocation of the selected specialized agent
+   * with full context management and intelligent query enhancement.
+   * 
+   * @param agent - The selected agent configuration
+   * @param query - Original user query
+   * @param sessionId - Session identifier for context
+   * @param analysis - The routing analysis that led to this selection
+   * @param context - Conversation context for enhancement
+   * @returns Promise<any> - Response from the specialized agent
+   */
+  private async invokeSpecializedAgentWithContext(
+    agent: AgentSpecialization,
+    query: string,
+    sessionId: string,
+    analysis: QueryAnalysis,
+    context: OrchestrationContext
+  ) {
+    // AGENT MAPPING - Use single agent with specialization prompts
+    const bedrockAgentId = this.config.orchestrator_agent_id; // Use main orchestrator agent
+    const agentAliasId = this.config.orchestrator_alias_id;
+
+    this.logger.log(`🤖 Invoking ${agent.name} specialist via ${bedrockAgentId} for query: ${query}`);
+
+    // STEP 1: GENERATE SPECIALIZATION SYSTEM PROMPT
+    const specializationPrompt = this.generateSpecializationPrompt(agent, analysis);
+    
+    // STEP 2: ADD CONVERSATION CONTEXT
+    const contextualQuery = this.enhanceQueryWithContext(query, context, agent);
+    
+    // STEP 3: COMBINE SPECIALIZATION + CONTEXT + USER QUERY
+    const fullPrompt = this.combinePromptComponents(specializationPrompt, contextualQuery, agent);
+    
+    this.logger.log(`📝 Generated specialized prompt for ${agent.name} (${fullPrompt.length} chars)`);
+
+    // STEP 4: INVOKE AGENT WITH SPECIALIZED PROMPT
+    return await this.bedrockService.invokeAgent(
+      bedrockAgentId,
+      agentAliasId,
+      fullPrompt,
+      sessionId
+    );
+  }
+
+  /**
+   * Specialization Prompt Generator
+   * 
+   * Creates comprehensive system prompts that make the agent behave
+   * as a true specialist in the selected domain.
+   * 
+   * @param agent - The specialist configuration
+   * @param analysis - Query analysis for additional context
+   * @returns string - Complete specialization prompt
+   */
+  private generateSpecializationPrompt(agent: AgentSpecialization, analysis: QueryAnalysis): string {
+    const promptComponents = [
+      // CORE IDENTITY
+      `You are a ${agent.name}, a highly experienced professional specialist.`,
+      `${agent.description}`,
+      '',
+      
+      // EXPERTISE DEFINITION
+      '**Your Core Expertise:**',
+      ...agent.capabilities.map(capability => `• ${capability}`),
+      '',
+      
+      // DOMAIN FOCUS
+      '**Your Specialized Domains:**',
+      ...agent.domains.map(domain => `• ${domain.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`),
+      '',
+      
+      // BEHAVIORAL INSTRUCTIONS
+      '**How You Should Respond:**',
+      this.generateBehavioralInstructions(agent),
+      '',
+      
+      // QUALITY STANDARDS
+      '**Quality Standards:**',
+      '• Provide expert-level insights and detailed explanations',
+      '• Use domain-specific terminology appropriately',
+      '• Offer practical, actionable advice',
+      '• Share relevant best practices and industry standards',
+      '• When applicable, provide examples or code snippets',
+      '• Acknowledge limitations and suggest when to consult other specialists',
+      '',
+      
+      // CONTEXT AWARENESS
+      '**Context Information:**',
+      `• User query intent: ${analysis.analyzed_intent}`,
+      `• Confidence in domain match: ${(analysis.confidence_scores[agent.id] || 0).toFixed(2)}`,
+      `• Matched keywords: ${analysis.keywords_matched.join(', ') || 'none'}`,
+      ''
+    ];
+
+    return promptComponents.join('\n');
+  }
+
+  /**
+   * Behavioral Instructions Generator
+   * 
+   * Creates specific behavioral guidelines for each specialist type
+   * to ensure authentic domain-specific responses.
+   * 
+   * @param agent - The specialist configuration
+   * @returns string - Behavioral instructions for this specialist
+   */
+  private generateBehavioralInstructions(agent: AgentSpecialization): string {
+    const behavioralPatterns: { [agentId: string]: string[] } = {
+      'technical-specialist': [
+        '• Focus on technical accuracy and implementation details',
+        '• Provide code examples when relevant (properly formatted)',
+        '• Discuss performance, scalability, and security considerations',
+        '• Mention relevant tools, frameworks, and technologies',
+        '• Consider different approaches and trade-offs',
+        '• Reference documentation and best practices'
+      ],
+      
+      'business-analyst': [
+        '• Frame responses in business impact and strategic value',
+        '• Quantify benefits where possible (ROI, metrics, KPIs)',
+        '• Consider stakeholder perspectives and requirements',
+        '• Discuss implementation feasibility and resource needs',
+        '• Address risk factors and mitigation strategies',
+        '• Connect solutions to business objectives'
+      ],
+      
+      'creative-specialist': [
+        '• Emphasize user experience and audience engagement',
+        '• Consider brand consistency and messaging alignment',
+        '• Suggest creative approaches and innovative solutions',
+        '• Think about visual appeal and emotional impact',
+        '• Discuss content strategy and storytelling elements',
+        '• Consider multichannel and cross-platform implications'
+      ],
+      
+      'data-scientist': [
+        '• Focus on data-driven insights and statistical significance',
+        '• Explain methodologies and analytical approaches',
+        '• Discuss data quality, sources, and limitations',
+        '• Provide visualization recommendations',
+        '• Consider model selection and validation strategies',
+        '• Address ethical considerations and bias in data analysis'
+      ]
+    };
+
+    const instructions = behavioralPatterns[agent.id] || [
+      '• Provide expert advice in your specialized domain',
+      '• Use professional terminology and industry standards',
+      '• Focus on practical, actionable recommendations',
+      '• Consider real-world constraints and best practices'
+    ];
+
+    return instructions.join('\n');
+  }
+
+  /**
+   * Prompt Component Combiner
+   * 
+   * Intelligently combines specialization prompt, conversation context,
+   * and user query into a cohesive prompt that maintains specialist
+   * behavior while preserving conversation flow.
+   * 
+   * @param specializationPrompt - The specialist system prompt
+   * @param contextualQuery - Query enhanced with conversation context  
+   * @param agent - The specialist configuration
+   * @returns string - Complete prompt for the agent
+   */
+  private combinePromptComponents(
+    specializationPrompt: string,
+    contextualQuery: string,
+    agent: AgentSpecialization
+  ): string {
+    const combinedPrompt = [
+      '=== SPECIALIST ROLE ASSIGNMENT ===',
+      specializationPrompt,
+      '',
+      '=== CONVERSATION CONTEXT ===',
+      contextualQuery,
+      '',
+      '=== RESPONSE INSTRUCTIONS ===',
+      `As the ${agent.name}, provide a comprehensive and expert response that:`,
+      '• Demonstrates deep domain expertise',
+      '• Addresses the specific question or request',
+      '• Provides actionable insights or solutions',
+      '• Maintains professional specialist tone',
+      '',
+      'Begin your response now:'
+    ];
+
+    return combinedPrompt.join('\n');
+  }
+
+  /**
+   * Agent Configuration Mapping
+   * 
+   * Maps our specialist configurations to actual Bedrock agent IDs.
+   * This allows for future expansion to multiple physical agents
+   * while maintaining the current single-agent architecture.
+   * 
+   * @param agentId - Specialist configuration ID
+   * @returns Object with Bedrock agent ID and alias
+   */
+  private getBedrockAgentMapping(agentId: string): { agentId: string; aliasId: string } {
+    // CURRENT: All specialists use the same underlying agent with different prompts
+    // FUTURE: Could map to different physical agents for true isolation
+    const agentMappings: { [key: string]: { agentId: string; aliasId: string } } = {
+      'technical-specialist': {
+        agentId: this.config.orchestrator_agent_id,
+        aliasId: this.config.orchestrator_alias_id
+      },
+      'business-analyst': {
+        agentId: this.config.orchestrator_agent_id,
+        aliasId: this.config.orchestrator_alias_id
+      },
+      'creative-specialist': {
+        agentId: this.config.orchestrator_agent_id,
+        aliasId: this.config.orchestrator_alias_id
+      },
+      'data-scientist': {
+        agentId: this.config.orchestrator_agent_id,
+        aliasId: this.config.orchestrator_alias_id
+      }
+    };
+
+    return agentMappings[agentId] || {
+      agentId: this.config.orchestrator_agent_id,
+      aliasId: this.config.orchestrator_alias_id
+    };
+  }
+
+  /**
+   * Specialized Agent Invocation (Legacy)
    * 
    * This method handles the actual invocation of the selected specialized agent.
    * It enhances the query with conversation context and manages the interaction
@@ -470,5 +849,317 @@ export class OrchestratorService {
     };
 
     return fallbackResponse;
+  }
+
+  // ========================================
+  // CONVERSATION CONTEXT MANAGEMENT SYSTEM
+  // ========================================
+
+  /**
+   * Enhanced Context Management - The Memory System
+   * 
+   * This comprehensive context management system maintains conversation
+   * continuity across multiple interactions, enabling:
+   * 1. Cross-agent context transfer
+   * 2. Conversation topic tracking
+   * 3. Agent switching optimization
+   * 4. Context-aware routing decisions
+   */
+
+  private conversationContexts = new Map<string, OrchestrationContext>();
+
+  /**
+   * Retrieve or Initialize Conversation Context
+   * 
+   * Gets the existing conversation context for a session or creates a new one.
+   * This is the entry point for all context-related operations.
+   * 
+   * @param sessionId - Unique session identifier
+   * @param userQuery - Current user query for context initialization
+   * @returns OrchestrationContext - Current or new conversation context
+   */
+  async getOrCreateContext(sessionId: string, userQuery: string): Promise<OrchestrationContext> {
+    let context = this.conversationContexts.get(sessionId);
+
+    if (!context) {
+      // CREATE NEW CONTEXT
+      context = {
+        session_id: sessionId,
+        user_query: userQuery,
+        conversation_history: [],
+        routing_decisions: [],
+        // current_agent will be set after first routing decision
+      };
+
+      this.conversationContexts.set(sessionId, context);
+      this.logger.log(`📝 Created new conversation context for session: ${sessionId}`);
+    } else {
+      // UPDATE EXISTING CONTEXT
+      context.user_query = userQuery;
+      this.logger.log(`📝 Retrieved existing context for session: ${sessionId} (${context.conversation_history.length} previous exchanges)`);
+    }
+
+    return context;
+  }
+
+  /**
+   * Update Context After Agent Response
+   * 
+   * Records the completed interaction in the conversation history and
+   * updates the context state for future routing decisions.
+   * 
+   * @param sessionId - Session identifier
+   * @param userQuery - The user's query
+   * @param response - The orchestrator's complete response
+   * @returns Promise<void>
+   */
+  async updateConversationContext(
+    sessionId: string,
+    userQuery: string,
+    response: OrchestrationResponse
+  ): Promise<void> {
+    const context = this.conversationContexts.get(sessionId);
+    if (!context) {
+      this.logger.warn(`⚠️ No context found for session ${sessionId} during update`);
+      return;
+    }
+
+    // ADD TO CONVERSATION HISTORY
+    const conversationStep = {
+      timestamp: new Date(),
+      user_message: userQuery,
+      agent_id: response.handling_agent,
+      agent_response: response.response,
+      routing_reason: response.routing_analysis.reasoning
+    };
+
+    context.conversation_history.push(conversationStep);
+    context.routing_decisions.push(response.routing_analysis);
+    context.current_agent = response.handling_agent;
+
+    // CONTEXT PRUNING
+    // Keep only the last 10 exchanges to prevent memory bloat
+    // while maintaining sufficient context for routing decisions
+    if (context.conversation_history.length > 10) {
+      context.conversation_history = context.conversation_history.slice(-10);
+    }
+
+    if (context.routing_decisions.length > 10) {
+      context.routing_decisions = context.routing_decisions.slice(-10);
+    }
+
+    this.logger.log(`📝 Updated context for session ${sessionId}: ${context.conversation_history.length} exchanges, current agent: ${context.current_agent}`);
+  }
+
+  /**
+   * Analyze Conversation Flow for Context Insights
+   * 
+   * Analyzes the conversation history to provide insights that can
+   * improve routing decisions and provide better context transfer.
+   * 
+   * @param context - The conversation context to analyze
+   * @returns Object with conversation insights
+   */
+  private analyzeConversationFlow(context: OrchestrationContext): {
+    dominant_topic: string;
+    agent_switching_frequency: number;
+    conversation_depth: number;
+    recent_topics: string[];
+  } {
+    if (!context.conversation_history.length) {
+      return {
+        dominant_topic: 'none',
+        agent_switching_frequency: 0,
+        conversation_depth: 0,
+        recent_topics: []
+      };
+    }
+
+    // AGENT SWITCHING ANALYSIS
+    const agentSwitches = context.conversation_history.reduce((switches, step, index) => {
+      if (index > 0 && step.agent_id !== context.conversation_history[index - 1].agent_id) {
+        switches++;
+      }
+      return switches;
+    }, 0);
+
+    const switchingFrequency = agentSwitches / Math.max(context.conversation_history.length - 1, 1);
+
+    // TOPIC ANALYSIS
+    const recentTopics = context.routing_decisions
+      .slice(-5) // Last 5 routing decisions
+      .map(decision => decision.analyzed_intent)
+      .filter((topic, index, array) => array.indexOf(topic) === index); // Unique topics
+
+    // DOMINANT TOPIC DETECTION
+    const topicCounts = context.routing_decisions.reduce((counts, decision) => {
+      counts[decision.analyzed_intent] = (counts[decision.analyzed_intent] || 0) + 1;
+      return counts;
+    }, {} as { [topic: string]: number });
+
+    const dominantTopic = Object.entries(topicCounts)
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'mixed';
+
+    return {
+      dominant_topic: dominantTopic,
+      agent_switching_frequency: switchingFrequency,
+      conversation_depth: context.conversation_history.length,
+      recent_topics: recentTopics
+    };
+  }
+
+  /**
+   * Generate Context Summary for Agent Transfer
+   * 
+   * When switching between agents, this creates a concise summary
+   * of the conversation context to help the new agent understand
+   * what has been discussed.
+   * 
+   * @param context - The conversation context
+   * @param targetAgent - The agent that will receive the context
+   * @returns string - Formatted context summary
+   */
+  private generateContextSummary(
+    context: OrchestrationContext,
+    targetAgent: AgentSpecialization
+  ): string {
+    if (!context.conversation_history.length) {
+      return '';
+    }
+
+    const flow = this.analyzeConversationFlow(context);
+    const recentExchanges = context.conversation_history.slice(-3); // Last 3 exchanges
+
+    const summaryParts = [
+      `[CONTEXT TRANSFER to ${targetAgent.name}]`,
+      `Conversation Summary: ${flow.conversation_depth} exchanges, dominant topic: ${flow.dominant_topic}`,
+    ];
+
+    // ADD RECENT CONVERSATION HIGHLIGHTS
+    if (recentExchanges.length > 0) {
+      summaryParts.push(`Recent discussion:`);
+      recentExchanges.forEach((exchange, index) => {
+        const agentName = this.config.specialized_agents.find(a => a.id === exchange.agent_id)?.name || exchange.agent_id;
+        summaryParts.push(`${index + 1}. User: ${exchange.user_message.substring(0, 80)}${exchange.user_message.length > 80 ? '...' : ''}`);
+        summaryParts.push(`   ${agentName}: ${exchange.agent_response.substring(0, 100)}${exchange.agent_response.length > 100 ? '...' : ''}`);
+      });
+    }
+
+    summaryParts.push(`[END CONTEXT TRANSFER]`);
+    summaryParts.push(''); // Empty line before current query
+
+    return summaryParts.join('\n');
+  }
+
+  /**
+   * Context-Aware Query Enhancement
+   * 
+   * Enhances the user's query with relevant conversation context
+   * when invoking a specialized agent. This is more sophisticated
+   * than the basic context enhancement in invokeSpecializedAgent.
+   * 
+   * @param query - Original user query
+   * @param context - Conversation context
+   * @param targetAgent - The agent that will handle the query
+   * @returns string - Enhanced query with context
+   */
+  private enhanceQueryWithContext(
+    query: string,
+    context: OrchestrationContext,
+    targetAgent: AgentSpecialization
+  ): string {
+    if (!context.conversation_history.length) {
+      return query; // No context to add
+    }
+
+    const isAgentSwitch = context.current_agent && context.current_agent !== targetAgent.id;
+    
+    if (isAgentSwitch) {
+      // AGENT SWITCH: Provide comprehensive context transfer
+      const contextSummary = this.generateContextSummary(context, targetAgent);
+      return `${contextSummary}\nCurrent Question: ${query}`;
+    } else {
+      // SAME AGENT: Provide light context continuity
+      const lastExchange = context.conversation_history[context.conversation_history.length - 1];
+      if (lastExchange) {
+        return `Previous context: "${lastExchange.user_message}" -> "${lastExchange.agent_response.substring(0, 100)}..."\n\nCurrent question: ${query}`;
+      }
+    }
+
+    return query;
+  }
+
+  /**
+   * Session Context Cleanup
+   * 
+   * Removes old conversation contexts to prevent memory leaks.
+   * Should be called periodically or when sessions expire.
+   * 
+   * @param maxAge - Maximum age in milliseconds (default: 1 hour)
+   */
+  cleanupOldContexts(maxAge: number = 3600000): void {
+    const now = new Date().getTime();
+    let cleanedCount = 0;
+
+    for (const [sessionId, context] of this.conversationContexts.entries()) {
+      const lastActivity = context.conversation_history.length > 0
+        ? context.conversation_history[context.conversation_history.length - 1].timestamp.getTime()
+        : now;
+
+      if (now - lastActivity > maxAge) {
+        this.conversationContexts.delete(sessionId);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.logger.log(`🧹 Cleaned up ${cleanedCount} old conversation contexts`);
+    }
+  }
+
+  /**
+   * DEBUG UTILITY: Preview Specialization Prompt
+   * 
+   * Generates and returns the specialization prompt that would be used
+   * for a given agent and query. Useful for testing and debugging.
+   * 
+   * @param agentId - The specialist agent ID
+   * @param query - The user query
+   * @returns Promise<string> - The generated prompt (or error message)
+   */
+  async previewSpecializationPrompt(agentId: string, query: string): Promise<string> {
+    try {
+      const agent = this.config.specialized_agents.find(a => a.id === agentId);
+      if (!agent) {
+        return `❌ Agent '${agentId}' not found. Available agents: ${this.config.specialized_agents.map(a => a.id).join(', ')}`;
+      }
+
+      // Create mock analysis for preview
+      const mockAnalysis: QueryAnalysis = {
+        original_query: query,
+        analyzed_intent: 'preview_mode',
+        confidence_scores: { [agentId]: 0.95 },
+        selected_agent: agentId,
+        reasoning: 'Preview mode - simulated high confidence',
+        keywords_matched: agent.keywords.filter(k => query.toLowerCase().includes(k.toLowerCase())).slice(0, 3)
+      };
+
+      // Create mock context
+      const mockContext: OrchestrationContext = {
+        session_id: 'preview-session',
+        user_query: query,
+        conversation_history: [],
+        routing_decisions: []
+      };
+
+      const specializationPrompt = this.generateSpecializationPrompt(agent, mockAnalysis);
+      const contextualQuery = this.enhanceQueryWithContext(query, mockContext, agent);
+      const fullPrompt = this.combinePromptComponents(specializationPrompt, contextualQuery, agent);
+
+      return `🎯 SPECIALIZATION PROMPT PREVIEW for ${agent.name}\n${'='.repeat(60)}\n\n${fullPrompt}`;
+
+    } catch (error) {
+      return `❌ Error generating preview: ${error.message}`;
+    }
   }
 }

@@ -1,11 +1,11 @@
 import React from 'react';
-import AgentSearch from './components/AgentSearch';
+import AppRouter from './components/AppRouter';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <AgentSearch />
+      <AppRouter />
     </div>
   );
 }
