@@ -80,6 +80,27 @@ PORT=3000
 JWKS_URI=http://auth:3001/.well-known/jwks.json
 ```
 
+## Architecture Decision Records
+
+### ADR 001: Use Pure Code Implementation for Agent Orchestration
+**Status:** Accepted
+
+**Context:**  
+We need to implement a hierarchical agent system with an orchestrator that routes user queries to specialized agents (technical, business, creative, data science). We evaluated three approaches: pure code implementation, Bedrock + Lambda functions, and a hybrid approach.
+
+**Decision:**  
+We will implement the orchestration logic using pure TypeScript code within the existing NestJS service, utilizing keyword matching, confidence scoring, and rule-based routing.
+
+**Consequences:**  
+- ✅ **Performance**: Faster response times with no Lambda cold starts or additional service calls
+- ✅ **Cost Efficiency**: Lower operational costs without additional Lambda invocations
+- ✅ **Development Speed**: Easier debugging, testing, and development within familiar codebase
+- ✅ **Simplicity**: Single service architecture reduces complexity and maintenance overhead
+- ✅ **Control**: Full control over routing logic and algorithms
+- ❌ **Scalability**: Orchestration logic scales with the service rather than independently
+- ❌ **AI Sophistication**: May require manual tuning compared to AI-powered routing decisions
+- 🔄 **Future Path**: Can evolve to hybrid approach if more sophisticated AI routing is needed
+
 ## Services
 
 ### 1. DynamoDB
