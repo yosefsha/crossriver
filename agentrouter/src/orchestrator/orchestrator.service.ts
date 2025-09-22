@@ -546,6 +546,11 @@ export class OrchestratorService {
     analysis: QueryAnalysis,
     context: OrchestrationContext
   ) {
+    // DEVELOPMENT MODE - Return mock responses when AWS credentials are not available
+    if (!process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID === '') {
+      return this.generateMockSpecializedResponse(query, agent, analysis);
+    }
+
     // AGENT MAPPING - Use single agent with specialization prompts
     const bedrockAgentId = this.config.orchestrator_agent_id; // Use main orchestrator agent
     const agentAliasId = this.config.orchestrator_alias_id;
