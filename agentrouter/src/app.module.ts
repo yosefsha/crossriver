@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AgentModule } from './agent/agent.module';
+import { OrchestratorModule } from './orchestrator/orchestrator.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { AgentModule } from './agent/agent.module';
       isGlobal: true,
     }),
     AgentModule,
+    OrchestratorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,11 +1,11 @@
 import React from 'react';
-import AppRouter from './components/AppRouter';
+import OrchestratorSearch from './components/OrchestratorSearch';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <AppRouter />
+      <OrchestratorSearch />
     </div>
   );
 }

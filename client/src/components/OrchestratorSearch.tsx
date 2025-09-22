@@ -1,28 +1,19 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Agent } from '../types/agent.types';
 import { 
-  AgentModeConfig, 
   OrchestratorConversationMessage, 
   OrchestratorSession,
   OrchestratorResponse
 } from '../types/orchestrator.types';
-import { AgentRouterAPI } from '../services/agentRouter.service';
 import { OrchestratorAPI } from '../services/orchestrator.service';
-import AgentModeSelector from './AgentModeSelector';
 import OrchestratorChatInterface from './OrchestratorChatInterface';
-import ChatInterface from './ChatInterface';
 import './OrchestratorSearch.css';
 
 const OrchestratorSearch: React.FC = () => {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [agentModeConfig, setAgentModeConfig] = useState<AgentModeConfig>({
-    mode: 'orchestrator',
-    showRoutingDetails: true
-  });
   const [currentSession, setCurrentSession] = useState<OrchestratorSession | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showRoutingDetails, setShowRoutingDetails] = useState(true);
 
   const generateMessageId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -33,29 +24,11 @@ const OrchestratorSearch: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        // Load available agents for direct mode
-        const availableAgents = await AgentRouterAPI.getAgents();
-        setAgents(availableAgents);
-
         // Check orchestrator status
-        try {
-          await OrchestratorAPI.getOrchestratorStatus();
-          // Orchestrator is available, default to orchestrator mode
-          setAgentModeConfig(prev => ({ ...prev, mode: 'orchestrator' }));
-        } catch (orchError) {
-          // Orchestrator not available, default to direct mode
-          console.warn('Orchestrator not available, falling back to direct mode:', orchError);
-          setAgentModeConfig(prev => ({ 
-            ...prev, 
-            mode: 'direct',
-            selectedAgent: availableAgents[0],
-            agentAliasId: 'TSTALIASID'
-          }));
-        }
-
+        await OrchestratorAPI.getOrchestratorStatus();
         setIsInitialized(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to initialize');
+        setError(err instanceof Error ? err.message : 'Failed to initialize orchestrator');
       } finally {
         setIsLoading(false);
       }
@@ -64,18 +37,12 @@ const OrchestratorSearch: React.FC = () => {
     initializeComponent();
   }, []);
 
-  const handleModeChange = useCallback((config: AgentModeConfig) => {
-    setAgentModeConfig(config);
-    setCurrentSession(undefined); // Reset session when mode changes
-    setError(null);
-  }, []);
-
   const createOrchestratorSession = (sessionId: string): OrchestratorSession => {
     return {
       sessionId,
       agentId: 'orchestrator',
       agentAliasId: 'orchestrator',
-      agentName: 'Smart Orchestrator',
+      agentName: 'AI Orchestrator',
       messages: [],
       isActive: true,
       createdAt: new Date(),
@@ -146,80 +113,6 @@ const OrchestratorSearch: React.FC = () => {
     }
   };
 
-  const handleDirectMessage = async (message: string) => {
-    if (!agentModeConfig.selectedAgent || !agentModeConfig.agentAliasId) {
-      setError('Please select an agent first');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      let response;
-      let session = currentSession;
-
-      // Start new session or continue existing one
-      if (!session) {
-        response = await AgentRouterAPI.startSession(
-          agentModeConfig.selectedAgent.agentId,
-          agentModeConfig.agentAliasId,
-          { initialMessage: message }
-        );
-        
-        session = {
-          sessionId: response.sessionId,
-          agentId: agentModeConfig.selectedAgent.agentId,
-          agentAliasId: agentModeConfig.agentAliasId,
-          agentName: agentModeConfig.selectedAgent.agentName,
-          messages: [],
-          isActive: true,
-          createdAt: new Date(),
-          orchestrator_enabled: false,
-          routing_history: [],
-          specialist_switches: 0
-        };
-      } else {
-        response = await AgentRouterAPI.sendMessage(
-          agentModeConfig.selectedAgent.agentId,
-          agentModeConfig.agentAliasId,
-          { message, sessionId: session.sessionId }
-        );
-      }
-
-      // Add user message
-      const userMessage: OrchestratorConversationMessage = {
-        id: generateMessageId(),
-        content: message,
-        isUser: true,
-        timestamp: new Date(),
-      };
-
-      // Add agent response
-      const agentMessage: OrchestratorConversationMessage = {
-        id: generateMessageId(),
-        content: response.response,
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      session.messages.push(userMessage, agentMessage);
-      setCurrentSession(session);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSendMessage = async (message: string) => {
-    if (agentModeConfig.mode === 'orchestrator') {
-      await handleOrchestratorMessage(message);
-    } else {
-      await handleDirectMessage(message);
-    }
-  };
-
   const clearSession = () => {
     setCurrentSession(undefined);
     setError(null);
@@ -229,8 +122,8 @@ const OrchestratorSearch: React.FC = () => {
     return (
       <div className="orchestrator-search loading">
         <div className="loading-content">
-          <div className="loading-spinner">⏳</div>
-          <p>Initializing agent orchestrator...</p>
+          <div className="loading-spinner">🤖</div>
+          <p>Initializing AI Orchestrator...</p>
         </div>
       </div>
     );
@@ -239,16 +132,21 @@ const OrchestratorSearch: React.FC = () => {
   return (
     <div className="orchestrator-search">
       <div className="search-header">
-        <h1>🤖 AI Agent Assistant</h1>
-        <p>Choose between smart orchestration or direct agent communication</p>
+        <h1>🎯 AI Orchestrator</h1>
+        <p>Intelligent routing to specialized AI agents for optimal responses</p>
       </div>
 
-      <AgentModeSelector
-        currentMode={agentModeConfig}
-        onModeChange={handleModeChange}
-        agents={agents}
-        disabled={isLoading}
-      />
+      <div className="orchestrator-controls">
+        <label className="routing-toggle">
+          <input
+            type="checkbox"
+            checked={showRoutingDetails}
+            onChange={(e) => setShowRoutingDetails(e.target.checked)}
+          />
+          <span className="toggle-slider"></span>
+          Show routing details
+        </label>
+      </div>
 
       {error && (
         <div className="error-banner">
@@ -262,14 +160,12 @@ const OrchestratorSearch: React.FC = () => {
         {currentSession && (
           <div className="session-info">
             <div className="session-details">
-              <span className="session-icon">
-                {agentModeConfig.mode === 'orchestrator' ? '🎯' : '🔗'}
-              </span>
+              <span className="session-icon">🤖</span>
               <div className="session-text">
                 <strong>{currentSession.agentName}</strong>
                 <span className="session-meta">
                   {currentSession.messages.length / 2} exchanges
-                  {currentSession.orchestrator_enabled && currentSession.specialist_switches > 0 && (
+                  {currentSession.specialist_switches > 0 && (
                     <span className="specialist-switches">
                       • {currentSession.specialist_switches} specialist switches
                     </span>
@@ -283,27 +179,13 @@ const OrchestratorSearch: React.FC = () => {
           </div>
         )}
 
-        {agentModeConfig.mode === 'orchestrator' ? (
-          <OrchestratorChatInterface
-            messages={currentSession?.messages || []}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
-            disabled={false}
-            showRoutingDetails={agentModeConfig.showRoutingDetails}
-          />
-        ) : (
-          <ChatInterface
-            messages={currentSession?.messages || []}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
-            disabled={!agentModeConfig.selectedAgent || !agentModeConfig.agentAliasId}
-            placeholder={
-              agentModeConfig.selectedAgent 
-                ? `Message ${agentModeConfig.selectedAgent.agentName}...`
-                : "Please select an agent first..."
-            }
-          />
-        )}
+        <OrchestratorChatInterface
+          messages={currentSession?.messages || []}
+          onSendMessage={handleOrchestratorMessage}
+          isLoading={isLoading}
+          disabled={false}
+          showRoutingDetails={showRoutingDetails}
+        />
       </div>
     </div>
   );
