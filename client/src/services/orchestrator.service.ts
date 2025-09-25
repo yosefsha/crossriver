@@ -17,7 +17,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
     query: string,
     sessionId?: string
   ): Promise<OrchestratorResponse> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/chat`, {
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,13 +41,13 @@ export class OrchestratorAPI extends AgentRouterAPI {
   static async startOrchestratedSession(
     initialMessage?: string
   ): Promise<OrchestratorResponse> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/start-session`, {
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        initialMessage: initialMessage
+        message: initialMessage
       }),
     });
 
@@ -59,10 +59,10 @@ export class OrchestratorAPI extends AgentRouterAPI {
   }
 
   /**
-   * Get available specialist configurations
+   * Get available agent specialists
    */
   static async getSpecialists(): Promise<AgentSpecialization[]> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/specialists`);
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/agents`);
     if (!response.ok) {
       throw new Error(`Failed to fetch specialists: ${response.statusText}`);
     }
@@ -70,59 +70,12 @@ export class OrchestratorAPI extends AgentRouterAPI {
   }
 
   /**
-   * Get conversation context for a session
+   * Get session statistics
    */
-  static async getConversationContext(sessionId: string): Promise<any> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/context/${sessionId}`);
+  static async getSessionStats(sessionId: string): Promise<any> {
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}/stats`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch conversation context: ${response.statusText}`);
-    }
-    return response.json();
-  }
-
-  /**
-   * Preview what prompt would be generated for a specialist and query
-   * (Debug/testing utility)
-   */
-  static async previewSpecializationPrompt(
-    specialistId: string,
-    query: string
-  ): Promise<string> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/preview-prompt`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        specialistId: specialistId,
-        query: query
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to preview prompt: ${response.statusText}`);
-    }
-    const result = await response.json();
-    return result.prompt;
-  }
-
-  /**
-   * Analyze a query without executing it
-   * (Useful for showing routing predictions)
-   */
-  static async analyzeQuery(query: string): Promise<QueryAnalysis> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: query
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to analyze query: ${response.statusText}`);
+      throw new Error(`Failed to fetch session stats: ${response.statusText}`);
     }
     return response.json();
   }
@@ -131,10 +84,11 @@ export class OrchestratorAPI extends AgentRouterAPI {
    * Get orchestrator configuration and status
    */
   static async getOrchestratorStatus(): Promise<{
-    enabled: boolean;
-    specialists: AgentSpecialization[];
-    routing_strategy: string;
-    fallback_agent?: string;
+    is_active: boolean;
+    available_agents: any[];
+    active_sessions: number;
+    uptime_seconds: number;
+    version: string;
   }> {
     const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/status`);
     if (!response.ok) {
@@ -144,16 +98,27 @@ export class OrchestratorAPI extends AgentRouterAPI {
   }
 
   /**
-   * Clear conversation context for a session
+   * Clear a session
    */
-  static async clearContext(sessionId: string): Promise<void> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/context/${sessionId}`, {
+  static async clearSession(sessionId: string): Promise<void> {
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}`, {
       method: 'DELETE'
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to clear context: ${response.statusText}`);
+      throw new Error(`Failed to clear session: ${response.statusText}`);
     }
+  }
+
+  /**
+   * Get health status
+   */
+  static async getHealth(): Promise<any> {
+    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/health`);
+    if (!response.ok) {
+      throw new Error(`Failed to get health status: ${response.statusText}`);
+    }
+    return response.json();
   }
 
   // Utility methods for UI components
@@ -171,9 +136,10 @@ export class OrchestratorAPI extends AgentRouterAPI {
   static getSpecialistEmoji(specialistId: string): string {
     const emojiMap: { [key: string]: string } = {
       'technical-specialist': '💻',
-      'business-analyst': '📊',
-      'creative-specialist': '🎨',
-      'data-scientist': '📈'
+      'financial-analyst': '�',
+      'data-scientist': '📊',
+      'business-analyst': '📈',
+      'creative-specialist': '🎨'
     };
     return emojiMap[specialistId] || '🤖';
   }

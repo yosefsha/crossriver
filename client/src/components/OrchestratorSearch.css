@@ -28,6 +28,61 @@
   font-weight: 300;
 }
 
+.orchestrator-controls {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.routing-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.routing-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.routing-toggle input[type="checkbox"]:checked + .toggle-slider {
+  background: rgba(16, 185, 129, 0.8);
+  border-color: rgba(16, 185, 129, 1);
+}
+
+.routing-toggle input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(24px);
+}
+
 .loading {
   display: flex;
   align-items: center;
