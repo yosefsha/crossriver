@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { JwtKeyService } from './services/jwt-key.service';
 import { 
@@ -6,7 +6,8 @@ import {
   LoginResponse, 
   RegisterRequest, 
   RegisterResponse, 
-  JWKS 
+  JWKS,
+  User
 } from './interfaces/auth.interfaces';
 
 @Controller()
@@ -31,5 +32,30 @@ export class AuthController {
   @Get('.well-known/jwks.json')
   getJWKS(): JWKS {
     return this.jwtKeyService.getJWKS();
+  }
+
+  // User management endpoints (for authenticated users)
+  @Get('admin/users')
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
+    return this.authService.getAllUsers();
+  }
+
+  @Get('admin/users/:id')
+  async getUserById(@Param('id') id: string): Promise<Omit<User, 'password'> | null> {
+    return this.authService.getUserById(id);
+  }
+
+  @Put('admin/users/:id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updates: Partial<Omit<User, 'id' | 'password' | 'createdAt'>>
+  ): Promise<Omit<User, 'password'> | null> {
+    return this.authService.updateUser(id, updates);
+  }
+
+  @Delete('admin/users/:id')
+  async deleteUser(@Param('id') id: string): Promise<{ success: boolean }> {
+    const success = await this.authService.deleteUser(id);
+    return { success };
   }
 }

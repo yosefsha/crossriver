@@ -8,8 +8,8 @@ This application consists of:
 
 1. **DynamoDB** - Local DynamoDB instance for data storage
 2. **DynamoDB Admin GUI** - Web interface for managing DynamoDB tables and data
-3. **Auth Service** - JWT authentication microservice
-4. **Server Service** - Main API server with authentication
+3. **Auth Service** - JWT authentication microservice with user management
+4. **Agent Router Service** - Multi-agent orchestrator with specialized AI assistants
 5. **React App** - Frontend client application
 6. **Traefik** - Reverse proxy for routing and load balancing
 
@@ -31,43 +31,31 @@ This application consists of:
 - Support role-based access control (admin, user)
 - Automatic token validation via JWKS
 
-### Architecture Decision: Direct Auth Routing vs Server Forwarding
+### Architecture Decision: Direct Service Routing
 
-We chose to route authentication requests **directly to the auth service via Traefik** rather than forwarding through the main server service.
+We chose to route requests **directly to specialized services via Traefik** rather than having a central API gateway server.
 
-#### Option 1: Server Forwarding (Rejected)
+#### Current Architecture ✅
 ```
-Client → Server Service → Auth Service
-       (POST /api/auth/login)    (internal call)
-```
-
-**Why we rejected this approach:**
-- ❌ **Coupling**: Server service becomes coupled to auth service
-- ❌ **Single Point of Failure**: Server service must handle auth routing
-- ❌ **Performance**: Extra network hop adds latency
-- ❌ **Complexity**: Server service needs auth-specific routing logic
-- ❌ **Violates Single Responsibility**: Server service handles business logic AND auth routing
-
-#### Option 2: Direct Traefik Routing (Chosen) ✅
-```
-Client → Traefik → Auth Service (POST /auth/login)
-                → Server Service (POST /api/*)
+Client → Traefik → Auth Service (POST /auth/login, /auth/register)
+                → Agent Router (POST /agents/*)
+                → React App (GET /)
 ```
 
 **Why we chose this approach:**
-- ✅ **Microservices Best Practice**: Clean service separation
-- ✅ **Performance**: Direct routing, no extra hops
-- ✅ **Scalability**: Each service scales independently
-- ✅ **Single Responsibility**: Auth service only handles auth, server service only handles business logic
-- ✅ **Production Ready**: Standard API gateway pattern
-- ✅ **Fault Isolation**: Auth service failure doesn't affect other services
-- ✅ **Easy Maintenance**: Changes to auth don't require server service updates
+- ✅ **Microservices Best Practice**: Clean service separation and single responsibility
+- ✅ **Performance**: Direct routing, no extra hops or proxy layers
+- ✅ **Scalability**: Each service scales independently based on demand
+- ✅ **Fault Isolation**: Service failure doesn't affect other services
+- ✅ **Simplified Architecture**: Fewer moving parts, easier to maintain
+- ✅ **Production Ready**: Standard API gateway pattern with Traefik
 
 #### Implementation Benefits
 - **Client Simplicity**: Single API endpoint (`localhost`) with clear path prefixes
-- **Service Independence**: Auth and server services are completely decoupled
-- **Operational Excellence**: Each service can be deployed, scaled, and monitored independently
-- **Security**: Authentication logic is isolated and specialized
+- **Service Independence**: All services are completely decoupled
+- **Operational Excellence**: Each service can be deployed, scaled, and monitored independently  
+- **Security**: Authentication and AI logic are isolated and specialized
+- **Cost Efficiency**: No redundant API layer, optimal resource utilization
 
 ### Environment Variables
 ```env
@@ -75,9 +63,11 @@ Client → Traefik → Auth Service (POST /auth/login)
 PORT=3001
 JWKS_URI=http://localhost:3001/.well-known/jwks.json
 
-# Server Service  
-PORT=3000
-JWKS_URI=http://auth:3001/.well-known/jwks.json
+# Agent Router Service  
+PORT=3002
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=<your-access-key>
+AWS_SECRET_ACCESS_KEY=<your-secret-key>
 ```
 
 ## Architecture Decision Records
@@ -370,23 +360,34 @@ GET /orchestrator/session/{sessionId}/stats
 - **Access**: [http://localhost/dbadmin](http://localhost/dbadmin)
 - **Features**: Create tables, view data, manage items
 
-### 3. React App
+### 3. Auth Service
+- **Purpose**: JWT authentication and user management
+- **Access**: [http://localhost/auth](http://localhost/auth)
+- **Technology**: NestJS with TypeScript
+- **Features**: 
+  - User registration and login
+  - JWT token generation and validation
+  - JWKS endpoint for token verification
+  - User management (CRUD operations)
+  - DynamoDB integration
+
+### 4. Agent Router Service
+- **Purpose**: Multi-agent orchestrator with AI specialists
+- **Access**: [http://localhost/agents](http://localhost/agents)
+- **Technology**: NestJS with TypeScript, AWS Bedrock
+- **Features**:
+  - Intelligent query routing to specialized agents
+  - Technical, Financial, Business, Creative, and Data Science specialists
+  - Session management and conversation tracking
+  - Single Bedrock agent with role-based prompting
+
+### 5. React App
 - **Purpose**: Frontend client application
 - **Access**: [http://localhost/](http://localhost/)
 - **Technology**: React with TypeScript
 - **Build**: Nginx-served production build
 
-### 4. NestJS App
-- **Purpose**: Backend API server
-- **Access**: [http://localhost/api](http://localhost/api)
-- **Technology**: NestJS with TypeScript
-- **Features**: 
-  - REST API endpoints
-  - Health check at `/api/health`
-  - CORS enabled
-  - DynamoDB integration
-
-### 5. Traefik
+### 6. Traefik
 - **Purpose**: Reverse proxy and load balancer
 - **Dashboard**: [http://localhost:8080](http://localhost:8080)
 - **Features**: Path-based routing, middleware support
@@ -412,7 +413,8 @@ GET /orchestrator/session/{sessionId}/stats
 
 3. **Access the application**
    - Frontend: [http://localhost/](http://localhost/)
-   - API: [http://localhost/api](http://localhost/api)
+   - Auth Service: [http://localhost/auth](http://localhost/auth)
+   - Agent Router: [http://localhost/agents](http://localhost/agents)
    - DynamoDB Admin: [http://localhost/dbadmin](http://localhost/dbadmin)
    - Traefik Dashboard: [http://localhost:8080](http://localhost:8080)
 
@@ -425,14 +427,10 @@ For development with hot reload:
 docker-compose up --build
 
 # View logs for specific service
-docker-compose logs -f server
+docker-compose logs -f auth
+docker-compose logs -f agentrouter
 docker-compose logs -f client
 ```
-
-### API Endpoints
-
-- `GET /api` - Hello World message
-- `GET /api/health` - Health check endpoint
 
 ## Project Structure
 
@@ -443,12 +441,18 @@ myassistant/
 │   ├── public/
 │   ├── Dockerfile
 │   └── package.json
-├── server/                 # NestJS backend
+├── auth/                   # Authentication service
 │   ├── src/
 │   │   ├── main.ts
 │   │   ├── app.module.ts
-│   │   ├── app.controller.ts
-│   │   └── app.service.ts
+│   │   ├── auth.controller.ts
+│   │   └── auth.service.ts
+│   ├── Dockerfile
+│   └── package.json
+├── agentrouter/           # Multi-agent orchestrator service
+│   ├── src/
+│   │   ├── orchestrator/
+│   │   └── bedrock/
 │   ├── Dockerfile
 │   └── package.json
 ├── dynamodb-data/          # DynamoDB data persistence
@@ -458,10 +462,21 @@ myassistant/
 
 ## Environment Variables
 
-### Server (NestJS)
+### Auth Service (NestJS)
 - `NODE_ENV`: Environment (development/production)
-- `PORT`: Server port (default: 3000)
-- `DATABASE_URL`: DynamoDB endpoint (http://dynamodb:8000)
+- `PORT`: Server port (default: 3001)
+- `AWS_ENDPOINT_URL`: DynamoDB endpoint (http://dynamodb:8000)
+- `AWS_REGION`: AWS region (us-east-1)
+- `AWS_ACCESS_KEY_ID`: Local access key
+- `AWS_SECRET_ACCESS_KEY`: Local secret key
+
+### Agent Router Service (NestJS)
+- `NODE_ENV`: Environment (development/production)
+- `PORT`: Server port (default: 3002)
+- `AWS_REGION`: AWS region for Bedrock (us-east-1)
+- `AWS_ACCESS_KEY_ID`: AWS access key for Bedrock
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key for Bedrock
+- `AWS_SESSION_TOKEN`: AWS session token for Bedrock
 
 ### DynamoDB Admin
 - `AWS_REGION`: AWS region (eu-west-1)
@@ -488,11 +503,17 @@ This project was built incrementally with the following steps:
 - Configured Docker build with Nginx for production serving
 - Set up Traefik routing with priority for root path handling
 
-### 4. Added NestJS App
-- Implemented NestJS backend with TypeScript
-- Configured API routing with path prefix stripping
-- Added health check endpoints and CORS support
-- Integrated with DynamoDB for data operations
+### 4. Added Auth Service
+- Implemented NestJS authentication service with TypeScript
+- Added JWT token generation and validation with JWKS endpoint
+- Integrated user management with DynamoDB
+- Configured direct routing via Traefik
+
+### 5. Added Agent Router Service
+- Implemented multi-agent orchestrator with NestJS and TypeScript
+- Integrated AWS Bedrock for AI specialist agents
+- Added intelligent query routing and session management
+- Configured specialized agents: Technical, Financial, Business, Creative, Data Science
 
 ## Troubleshooting
 
@@ -517,14 +538,5 @@ docker-compose logs -f <service-name>
 
 # Check running containers
 docker-compose ps
-
-
-explain the suggested flow . 
-1. client calls api register with name email and password
-2. main server recerives register request forwards to users service 
-3. user service save credentials in db
-4. return success to client
-5. now client can login. client posts login request with email and password
-6. server gets request and forwards to auth service
 
 ```

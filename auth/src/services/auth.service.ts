@@ -116,4 +116,30 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired token');
     }
   }
+
+  // Admin methods
+  async getAllUsers(): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepository.getAllUsers();
+    return users.map(({ password, ...user }) => user);
+  }
+
+  async getUserById(id: string): Promise<Omit<User, 'password'> | null> {
+    const user = await this.userRepository.findUserById(id);
+    if (!user) return null;
+    
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'password' | 'createdAt'>>): Promise<Omit<User, 'password'> | null> {
+    const updatedUser = await this.userRepository.updateUser(id, updates);
+    if (!updatedUser) return null;
+
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.userRepository.deleteUser(id);
+  }
 }

@@ -52,36 +52,6 @@ services:
     networks:
       - app-network
 
-  server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - AWS_ENDPOINT_URL=http://dynamodb:8000
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-    depends_on:
-      - dynamodb
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.server.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.server.entrypoints=web"
-      - "traefik.http.routers.server.middlewares=server-stripprefix"
-      - "traefik.http.middlewares.server-stripprefix.stripprefix.prefixes=/api"
-      - "traefik.http.services.server.loadbalancer.server.port=3000"
-    networks:
-      - app-network
-    volumes:
-      - ./server/src:/app/src
-      - ./server/package.json:/app/package.json
-      - ./server/tsconfig.json:/app/tsconfig.json
-      - ./server/tsconfig.build.json:/app/tsconfig.build.json
-      - ./server/nest-cli.json:/app/nest-cli.json
-    command: npm run start:dev
-
   auth:
     build:
       context: ./auth
@@ -141,8 +111,6 @@ services:
   client:
     build:
       context: ./client  # Path to your React app directory
-      args:
-        API_URL: /api
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.client.priority=1"
