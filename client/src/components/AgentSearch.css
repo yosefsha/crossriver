@@ -1,0 +1,166 @@
+.agent-search {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h2 {
+  margin: 0 0 8px 0;
+  color: #1a1a1a;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fee;
+  border: 1px solid #f5c6c6;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  color: #d00;
+  font-size: 0.9rem;
+}
+
+.dismiss-error {
+  background: none;
+  border: none;
+  color: #d00;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  margin-left: 8px;
+  border-radius: 4px;
+}
+
+.dismiss-error:hover {
+  background-color: rgba(221, 0, 0, 0.1);
+}
+
+.chat-section {
+  margin-top: 30px;
+  border: 1px solid #e1e5e9;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.session-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-status {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.session-id {
+  font-size: 0.8rem;
+  color: #666;
+  font-family: 'Monaco', 'Menlo', monospace;
+  background-color: #f1f3f4;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.new-chat-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.new-chat-button:hover {
+  background-color: #0056b3;
+}
+
+.new-chat-button:active {
+  transform: translateY(1px);
+}
+
+.setup-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  margin-top: 30px;
+}
+
+.setup-message p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .agent-search {
+    padding: 16px;
+  }
+  
+  .header h2 {
+    font-size: 1.6rem;
+  }
+  
+  .chat-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .session-info {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+  
+  .new-chat-button {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .agent-search {
+    padding: 12px;
+  }
+  
+  .error-message {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .dismiss-error {
+    align-self: flex-end;
+  }
+}
