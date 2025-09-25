@@ -59,8 +59,8 @@ export class OrchestratorService {
       this.logger.log(`📊 Query analysis completed. Selected agent: ${analysis.selected_agent}`);
       this.logger.log(`📈 Confidence scores: ${JSON.stringify(analysis.confidence_scores)}`);
 
-      // STEP 3: AGENT LOOKUP
-      // Find the configuration for the selected specialized agent
+      // STEP 3: AGENT LOOKUP AND HANDLING
+      // Find the configuration for the selected agent (including general-assistant)
       const selectedAgent = this.config.specialized_agents.find(
         agent => agent.id === analysis.selected_agent
       );
@@ -546,29 +546,28 @@ export class OrchestratorService {
     analysis: QueryAnalysis,
     context: OrchestrationContext
   ) {
-    // DEVELOPMENT MODE - Return mock responses when AWS credentials are not available
-    if (!process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID === '') {
-      return this.generateMockSpecializedResponse(query, agent, analysis);
-    }
-
-    // AGENT MAPPING - Use single agent with specialization prompts
-    const bedrockAgentId = this.config.orchestrator_agent_id; // Use main orchestrator agent
+    // SIMPLIFIED ARCHITECTURE: Use single agent (YWBU6XB7W7) for ALL roles
+    const bedrockAgentId = this.config.orchestrator_agent_id;
     const agentAliasId = this.config.orchestrator_alias_id;
-
-    this.logger.log(`🤖 Invoking ${agent.name} specialist via ${bedrockAgentId} for query: ${query}`);
-
-    // STEP 1: GENERATE SPECIALIZATION SYSTEM PROMPT
-    const specializationPrompt = this.generateSpecializationPrompt(agent, analysis);
     
-    // STEP 2: ADD CONVERSATION CONTEXT
-    const contextualQuery = this.enhanceQueryWithContext(query, context, agent);
-    
-    // STEP 3: COMBINE SPECIALIZATION + CONTEXT + USER QUERY
-    const fullPrompt = this.combinePromptComponents(specializationPrompt, contextualQuery, agent);
-    
-    this.logger.log(`📝 Generated specialized prompt for ${agent.name} (${fullPrompt.length} chars)`);
+    this.logger.log(`🤖 Using single agent ${bedrockAgentId} as ${agent.name} for query: ${query}`);
 
-    // STEP 4: INVOKE AGENT WITH SPECIALIZED PROMPT
+    // STEP 1: GENERATE APPROPRIATE PROMPT FOR THE ROLE
+    let fullPrompt: string;
+    
+    if (agent.id === 'general-assistant') {
+      // Simple, natural prompt for general queries
+      fullPrompt = `Please provide a helpful, accurate response to this query: "${query}"`;
+    } else {
+      // Detailed specialization prompt for domain experts
+      const specializationPrompt = this.generateSpecializationPrompt(agent, analysis);
+      const contextualQuery = this.enhanceQueryWithContext(query, context, agent);
+      fullPrompt = this.combinePromptComponents(specializationPrompt, contextualQuery, agent);
+    }
+    
+    this.logger.log(`📝 Generated ${agent.id} prompt (${fullPrompt.length} chars)`);
+
+    // STEP 2: INVOKE SINGLE AGENT IN APPROPRIATE ROLE
     return await this.bedrockService.invokeAgent(
       bedrockAgentId,
       agentAliasId,

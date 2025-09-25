@@ -1,10 +1,10 @@
 import { OrchestrationConfig } from '../types/orchestrator.types';
 
 export const ORCHESTRATOR_CONFIG: OrchestrationConfig = {
-  orchestrator_agent_id: 'NGEQMGYWSE', // Single Bedrock agent used for all specialists
-  orchestrator_alias_id: 'TSTALIASID', // Single alias for all specialists
+  orchestrator_agent_id: 'YWBU6XB7W7', // Single Bedrock agent handles ALL roles
+  orchestrator_alias_id: 'UIAHNBDBXI', // Single alias for all interactions
   routing_strategy: 'hybrid',
-  fallback_agent_id: 'general-assistant',
+  fallback_agent_id: 'general-assistant', // Use same agent for general queries
   
   specialized_agents: [
     {
@@ -128,10 +128,38 @@ export const ORCHESTRATOR_CONFIG: OrchestrationConfig = {
         'ratio', 'balance sheet', 'income statement', 'equity', 'debt', 'bonds',
         'stocks', 'portfolio', 'risk', 'return', 'volatility', 'beta', 'alpha',
         'interest rate', 'dividend', 'earnings', 'ebitda', 'npv', 'irr',
-        'financial modeling', 'excel', 'bloomberg', 'sec', 'gaap'
+        'financial modeling', 'excel', 'bloomberg', 'sec', 'gaap', 'fbar', 
+        'foreign bank account', 'tax reporting', 'compliance', 'irs', 'treasury',
+        'reporting requirements', 'foreign assets', 'offshore account',
+        'tax', 'taxes', 'taxation', 'tax professional', 'tax advisor', 'tax consultant',
+        'accountant', 'cpa', 'tax planning', 'tax preparation', 'tax return',
+        'deduction', 'exemption', 'withholding', 'refund'
       ],
       domains: ['finance', 'investment', 'financial_analysis', 'capital_markets'],
-      confidence_threshold: 0.7
+      confidence_threshold: 0.3 // Lowered to accept FBAR and other financial compliance queries
+    },
+    
+    {
+      id: 'general-assistant',
+      name: 'General Assistant',
+      description: 'A versatile general-purpose assistant that handles a wide variety of queries that don\'t require specialized domain expertise. Uses a dedicated Bedrock agent optimized for general assistance.',
+      capabilities: [
+        'General question answering and research',
+        'Basic information lookup and explanation',
+        'Multi-domain query handling',
+        'General advice and guidance',
+        'Simple task assistance',
+        'Educational explanations',
+        'General knowledge queries',
+        'Cross-domain information synthesis'
+      ],
+      keywords: [
+        'help', 'question', 'what', 'how', 'why', 'when', 'where', 'explain',
+        'general', 'basic', 'simple', 'information', 'research', 'lookup',
+        'guide', 'advice', 'assistance', 'support', 'overview', 'summary'
+      ],
+      domains: ['general', 'multi_domain', 'information', 'assistance'],
+      confidence_threshold: 0.1 // Very low threshold to catch most general queries
     }
   ]
 };
