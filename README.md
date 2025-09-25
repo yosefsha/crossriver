@@ -101,6 +101,56 @@ We will implement the orchestration logic using pure TypeScript code within the 
 - ❌ **AI Sophistication**: May require manual tuning compared to AI-powered routing decisions
 - 🔄 **Future Path**: Can evolve to hybrid approach if more sophisticated AI routing is needed
 
+### ADR 002: Single Bedrock Agent for Multi-Role Operation
+**Status:** Accepted  
+**Date:** September 25, 2025
+
+**Context:**  
+Our multi-agent orchestrator system requires different AI capabilities: orchestration decisions, domain-specific expertise (technical, financial, business, creative, data science), and general assistance. We evaluated using multiple specialized Bedrock agents versus a single versatile agent with role-based prompting.
+
+**Decision:**  
+We will use a single AWS Bedrock agent (`YWBU6XB7W7`) to handle all roles through dynamic prompt engineering, rather than deploying separate agents for each specialist domain.
+
+**Alternatives Considered:**
+1. **Multiple Specialized Agents** - Separate Bedrock agents for each domain (technical, financial, etc.)
+2. **Hybrid Approach** - Orchestrator + general assistant on one agent, specialists on dedicated agents
+3. **Single Agent Architecture** - One foundation model with role-based prompting (chosen)
+
+**Consequences:**
+- ✅ **Cost Optimization**: Single agent pricing instead of 6+ separate agent costs
+- ✅ **Architectural Simplicity**: One agent to configure, monitor, and maintain
+- ✅ **Consistent Quality**: Same underlying Claude intelligence across all specialist roles
+- ✅ **Reduced Infrastructure**: Single authentication, permission, and connection management
+- ✅ **Deployment Efficiency**: Simpler CI/CD with fewer AWS resources to manage
+- ✅ **Session Management**: Unified session handling across all agent interactions
+- ✅ **Performance**: No agent-switching overhead, reduced latency from connection reuse
+- ✅ **Proven Pattern**: Role-based prompting is a well-established multi-agent technique
+
+**Implementation Details:**
+```typescript
+// Single agent handles all roles through prompt engineering:
+orchestrator_agent_id: 'YWBU6XB7W7'
+
+// Role examples:
+// Orchestration: "Analyze this query and determine routing..."
+// Technical: "You are a Technical Specialist with expertise in..."
+// Financial: "You are a Financial Analyst specializing in..."
+// General: "Please provide a helpful response to this query..."
+```
+
+**Risks & Mitigations:**
+- **Risk**: Single point of failure for all AI functionality
+- **Mitigation**: AWS Bedrock provides high availability and automatic failover
+- **Risk**: Context pollution between different roles
+- **Mitigation**: Each invocation uses isolated sessions and clear role prompts
+
+**Success Metrics:**
+- ✅ FBAR queries correctly route to financial-analyst (confidence ≥ 0.3)
+- ✅ Tax queries route to financial-analyst with enhanced keywords
+- ✅ Technical queries route to technical-specialist (confidence ≥ 0.7)
+- ✅ General queries handled by general-assistant role
+- ✅ Cost reduction: ~83% savings vs 6 separate agents
+
 ## 🎯 Multi-Agent Orchestrator: Model in Action
 
 ### **System Overview**

@@ -1,4 +1,5 @@
 import { Agent, AgentResponse, ChatMessage, StartSessionRequest } from '../types/agent.types';
+import { authService } from './auth.service';
 
 const API_BASE_URL = '/agents';
 
@@ -8,7 +9,7 @@ export class AgentRouterAPI {
    * Get all available Bedrock agents
    */
   static async getAgents(): Promise<Agent[]> {
-    const response = await fetch(`${API_BASE_URL}`);
+    const response = await authService.authenticatedFetch(`${API_BASE_URL}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch agents: ${response.statusText}`);
     }
@@ -19,7 +20,7 @@ export class AgentRouterAPI {
    * Get agent details by ID
    */
   static async getAgent(agentId: string): Promise<Agent> {
-    const response = await fetch(`${API_BASE_URL}/${agentId}`);
+    const response = await authService.authenticatedFetch(`${API_BASE_URL}/${agentId}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch agent: ${response.statusText}`);
     }
@@ -34,7 +35,7 @@ export class AgentRouterAPI {
     agentAliasId: string, 
     request: StartSessionRequest = {}
   ): Promise<AgentResponse> {
-    const response = await fetch(`${API_BASE_URL}/${agentId}/${agentAliasId}/start-session`, {
+    const response = await authService.authenticatedFetch(`${API_BASE_URL}/${agentId}/${agentAliasId}/start-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ export class AgentRouterAPI {
     agentAliasId: string, 
     message: ChatMessage
   ): Promise<AgentResponse> {
-    const response = await fetch(`${API_BASE_URL}/${agentId}/${agentAliasId}/chat`, {
+    const response = await authService.authenticatedFetch(`${API_BASE_URL}/${agentId}/${agentAliasId}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ export class AgentRouterAPI {
    * Check agent router service health
    */
   static async getHealth(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await authService.authenticatedFetch(`${API_BASE_URL}/health`);
     if (!response.ok) {
       throw new Error(`Failed to get health status: ${response.statusText}`);
     }

@@ -1,4 +1,5 @@
 import { AgentRouterAPI } from './agentRouter.service';
+import { authService } from './auth.service';
 import { 
   OrchestratorResponse, 
   AgentSpecialization,
@@ -17,7 +18,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
     query: string,
     sessionId?: string
   ): Promise<OrchestratorResponse> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/query`, {
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,7 +42,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
   static async startOrchestratedSession(
     initialMessage?: string
   ): Promise<OrchestratorResponse> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/start`, {
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/session/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,7 +63,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
    * Get available agent specialists
    */
   static async getSpecialists(): Promise<AgentSpecialization[]> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/agents`);
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/agents`);
     if (!response.ok) {
       throw new Error(`Failed to fetch specialists: ${response.statusText}`);
     }
@@ -73,7 +74,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
    * Get session statistics
    */
   static async getSessionStats(sessionId: string): Promise<any> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}/stats`);
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}/stats`);
     if (!response.ok) {
       throw new Error(`Failed to fetch session stats: ${response.statusText}`);
     }
@@ -90,7 +91,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
     uptime_seconds: number;
     version: string;
   }> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/status`);
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/status`);
     if (!response.ok) {
       throw new Error(`Failed to get orchestrator status: ${response.statusText}`);
     }
@@ -101,7 +102,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
    * Clear a session
    */
   static async clearSession(sessionId: string): Promise<void> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}`, {
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/session/${sessionId}`, {
       method: 'DELETE'
     });
 
@@ -114,7 +115,7 @@ export class OrchestratorAPI extends AgentRouterAPI {
    * Get health status
    */
   static async getHealth(): Promise<any> {
-    const response = await fetch(`${ORCHESTRATOR_API_BASE_URL}/health`);
+    const response = await authService.authenticatedFetch(`${ORCHESTRATOR_API_BASE_URL}/health`);
     if (!response.ok) {
       throw new Error(`Failed to get health status: ${response.statusText}`);
     }
