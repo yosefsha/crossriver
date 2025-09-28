@@ -4,6 +4,16 @@ import { OrchestratorService } from './orchestrator.service';
 @Controller('orchestrator')
 export class OrchestratorController {
   constructor(private readonly orchestratorService: OrchestratorService) {}
+  
+  @Get('debug')
+  async getDebugInfo() {
+    return {
+      timestamp: new Date().toISOString(),
+      message: "Debug endpoint working correctly",
+      environment: process.env.NODE_ENV,
+      path: "/orchestrator/debug"
+    };
+  }
 
   @Get('status')
   async getStatus() {

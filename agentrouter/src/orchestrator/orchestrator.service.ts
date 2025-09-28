@@ -1,18 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BedrockService } from '../agent/bedrock.service';
+import { ClassificationService } from '../classification/classification.service';
 import { ORCHESTRATOR_CONFIG } from './config/orchestrator.config';
 import { 
   QueryAnalysis, 
   OrchestrationContext, 
   OrchestrationResponse,
-  AgentSpecialization 
+  AgentSpecialization,
+  StatusResponse
 } from './types/orchestrator.types';
 
 /**
  * OrchestratorService - The brain of the multi-agent system
  * 
  * This service acts as an intelligent router that:
- * 1. Analyzes incoming user queries to understand intent and domain
+ * 1. Analyzes incoming user queries to understand intent and domain using ClassificationService
  * 2. Scores each specialized agent based on relevance to the query
  * 3. Routes queries to the most appropriate specialized agent
  * 4. Maintains conversation context across multiple exchanges
@@ -26,7 +28,33 @@ export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
   private readonly config = ORCHESTRATOR_CONFIG;
 
-  constructor(private readonly bedrockService: BedrockService) {}
+  constructor(
+    private readonly bedrockService: BedrockService,
+    private readonly classificationService: ClassificationService
+  ) {}
+
+  /**
+   * Get the status of the orchestrator service
+   * @returns StatusResponse with service information
+   */
+  async getStatus(): Promise<StatusResponse> {
+    this.logger.log('Status endpoint called');
+    
+    const availableAgents = this.config.specialized_agents.map(agent => ({
+      agent_id: agent.id,
+      name: agent.name,
+      domains: agent.domains,
+      description: agent.description
+    }));
+
+    return {
+      is_active: true,
+      available_agents: availableAgents,
+      active_sessions: 0,
+      uptime_seconds: Math.floor(process.uptime()),
+      version: '1.0.0'
+    };
+  }
 
   /**
    * Main orchestration method - the entry point for all user queries
@@ -126,6 +154,22 @@ export class OrchestratorService {
     query: string, 
     context?: OrchestrationContext
   ): Promise<QueryAnalysis> {
+    try {
+      // STEP 1: Try the dedicated classification agent first
+      this.logger.log(`Using ClassificationService to analyze query: "${query}"`);
+      return await this.classificationService.classifyQuery(query);
+    } catch (error) {
+      // STEP 2: Fall back to local classification if the classification agent fails
+      this.logger.warn(`Classification agent failed: ${error.message}. Falling back to local classification.`);
+      return this.fallbackLocalClassification(query, context);
+    }
+  }
+  
+  /**
+   * Fallback to local classification when the classification agent is unavailable
+   * This preserves the original keyword/domain-based classification logic
+   */
+  private fallbackLocalClassification(query: string, context?: OrchestrationContext): QueryAnalysis {
     const queryLower = query.toLowerCase();
     const confidenceScores: { [agentId: string]: number } = {};
 
@@ -245,7 +289,7 @@ export class OrchestratorService {
       'cloud_computing': ['aws', 'azure', 'cloud', 'serverless', 'kubernetes', 'docker', 'microservices'],
       'cybersecurity': ['secure', 'encrypt', 'authenticate', 'vulnerability', 'threat', 'firewall'],
       'business_strategy': ['strategy', 'plan', 'business', 'market', 'growth', 'competitive', 'revenue'],
-      'project_management': ['project', 'timeline', 'milestone', 'stakeholder', 'scope', 'deliverable'],
+      'project_management': ['project', 'timeline', 'milestone', 'stakeholder', 'scope', 'deliverable', 'mvp', 'plan', 'risk', 'assumption', 'owner'],
       'financial_analysis': ['financial', 'budget', 'cost', 'roi', 'investment', 'profit', 'revenue'],
       'data_science': ['analyze', 'predict', 'model', 'statistics', 'insights', 'correlation', 'trend'],
       'machine_learning': ['train', 'algorithm', 'neural', 'classification', 'regression', 'feature'],

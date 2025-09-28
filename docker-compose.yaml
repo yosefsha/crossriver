@@ -55,7 +55,7 @@ services:
   auth:
     build:
       context: ./auth
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     environment:
       - NODE_ENV=development
       - PORT=3001
@@ -75,14 +75,16 @@ services:
     networks:
       - app-network
     volumes:
-      - ./auth:/app
-      - /app/node_modules
-    command: npm run start:dev
+      - ./auth/src:/app/src
+      - ./auth/package.json:/app/package.json
+      - ./auth/tsconfig.json:/app/tsconfig.json
+      - ./auth/tsconfig.build.json:/app/tsconfig.build.json
+      - ./auth/nest-cli.json:/app/nest-cli.json
 
   agentrouter:
     build:
       context: ./agentrouter
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     environment:
       - NODE_ENV=development
       - PORT=3002
@@ -92,12 +94,28 @@ services:
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
     labels:
       - "traefik.enable=true"
+      # Main API router with strip prefix
       - "traefik.http.routers.agentrouter.rule=PathPrefix(`/agents`)"
       - "traefik.http.routers.agentrouter.entrypoints=web"
-      - "traefik.http.routers.agentrouter.priority=100"
-      - "traefik.http.routers.agentrouter.middlewares=agentrouter-stripprefix"
-      - "traefik.http.middlewares.agentrouter-stripprefix.stripprefix.prefixes=/agents"
+      - "traefik.http.routers.agentrouter.priority=10"
+      - "traefik.http.routers.agentrouter.service=agentrouter"
       - "traefik.http.services.agentrouter.loadbalancer.server.port=3002"
+      - "traefik.http.middlewares.agents-strip.stripprefix.prefixes=/agents"
+      - "traefik.http.routers.agentrouter.middlewares=agents-strip"
+      
+      # Direct endpoint for status
+      - "traefik.http.routers.status-router.rule=Path(`/status`)"
+      - "traefik.http.routers.status-router.entrypoints=web"
+      - "traefik.http.routers.status-router.priority=100"
+      - "traefik.http.routers.status-router.service=status-service"
+      - "traefik.http.services.status-service.loadbalancer.server.port=3002"
+      
+      # Direct endpoints for health
+      - "traefik.http.routers.health-router.rule=Path(`/health`) || Path(`/health/detailed`)"
+      - "traefik.http.routers.health-router.entrypoints=web"
+      - "traefik.http.routers.health-router.priority=100"
+      - "traefik.http.routers.health-router.service=health-service"
+      - "traefik.http.services.health-service.loadbalancer.server.port=3002"
     networks:
       - app-network
     volumes:

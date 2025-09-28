@@ -51,7 +51,8 @@ export const ORCHESTRATOR_CONFIG: OrchestrationConfig = {
         'revenue', 'cost', 'budget', 'planning', 'stakeholder', 'requirements',
         'process', 'workflow', 'optimization', 'kpi', 'metrics', 'dashboard',
         'finance', 'investment', 'risk', 'compliance', 'agile', 'scrum',
-        'profit', 'growth', 'competitive', 'opportunity'
+        'profit', 'growth', 'competitive', 'opportunity', 'mvp', 'milestone',
+        'assumption', 'product', 'roadmap', 'timeline', 'plan', 'owners', 'risks'
       ],
       domains: ['business_strategy', 'project_management', 'financial_analysis'],
       confidence_threshold: 0.6

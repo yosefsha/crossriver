@@ -1,0 +1,15 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Expose port
+EXPOSE 3002
+
+# We'll mount source code as a volume in development
+CMD ["npm", "run", "start:dev"]

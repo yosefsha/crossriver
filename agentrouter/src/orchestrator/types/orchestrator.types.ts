@@ -49,7 +49,24 @@ export interface OrchestrationResponse {
   agent_name: string;
   routing_analysis: QueryAnalysis;
   session_id: string;
-  context_maintained: boolean;
+  context_maintained?: boolean;
+}
+
+export interface AgentInfo {
+  agent_id: string;
+  name: string;
+  domains: string[];
+  description: string;
+}
+
+export interface StatusResponse {
+  is_active: boolean;
+  available_agents: AgentInfo[];
+  active_sessions: number;
+  uptime_seconds: number;
+  version: string;
+  session_id?: string;
+  context_maintained?: boolean;
 }
 
 export interface AgentRoutingRule {

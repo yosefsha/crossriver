@@ -91,8 +91,36 @@ Swagger documentation is available at `/api/docs` when the service is running.
 
 - **BedrockService**: AWS SDK integration for Bedrock Agent operations
 - **AgentService**: Business logic layer for agent interactions
+- **OrchestratorService**: Intelligent routing of user queries to specialized agents
+- **ClassificationService**: Dedicated classification for query intent analysis
 - **AgentController**: REST API endpoints and validation
 - **DTOs**: Request/response data transfer objects with validation
+
+## Classification System
+
+The service uses a dedicated AWS Bedrock classification agent to intelligently route user queries to specialized domain experts:
+
+- **Technical Specialist**: Programming, DevOps, architecture, infrastructure
+- **Business Analyst**: Strategy, ROI, project management, market analysis
+- **Creative Specialist**: Content, marketing, design, copywriting
+- **Data Scientist**: ML, analytics, statistics, experiments
+- **Financial Analyst**: Finance, investments, valuation, accounting
+
+### Classification Agent
+
+- **Agent ID**: BZUOBKBE6S
+- **Alias ID**: IQZX8OVP9I
+- **Purpose**: Analyze query intent and determine the most appropriate specialist
+- **Output**: Structured JSON with specialist target and confidence scores
+- **Fallback**: Keyword-based classification when the agent call fails
+
+### Implementation Details
+
+- Confidence-based scoring system for agent selection
+- Fallback mechanisms to keyword-based routing when needed
+- Content extraction for handling non-JSON responses
+- Comprehensive logging and error handling
+- Test suite with real API calls
 
 ## Architecture Decision Records (ADRs)
 
@@ -203,6 +231,31 @@ ${agent.capabilities.map(cap => `• ${cap}`).join('\n')}
 - Could evolve to multiple physical agents if scaling requires
 - Prompt optimization through usage analytics
 - Potential integration with prompt engineering tools
+
+---
+
+### ADR 003: Dedicated Classification Agent vs Keyword Routing (2025-09-25)
+
+**Decision**: Implement a dedicated classification agent in AWS Bedrock specifically trained for query classification and routing decisions, replacing the simpler keyword-based approach.
+
+**Status**: Accepted
+
+**Context**: Our multi-agent system requires accurate routing of user queries to the appropriate specialized agent. The initial keyword/domain-based approach proved insufficient for nuanced queries that required deeper semantic understanding.
+
+**Options Considered**:
+1. Enhanced keyword/pattern matching
+2. Machine learning classification model
+3. Dedicated AWS Bedrock classification agent
+4. Integrated classification with specialist agent
+
+**Decision Rationale**:
+- **Semantic Understanding**: Foundation models excel at understanding query intent beyond keywords
+- **Structured Output**: Returns standardized JSON with confidence scores
+- **Cost Efficiency**: Classification agents use smaller models than full specialist agents
+- **Separation of Concerns**: Divides routing logic from specialist responses
+- **Fallback Capability**: Maintained keyword-based approach as fallback
+
+[Read full ADR](/docs/adr-003-dedicated-classification-agent.md)
 
 ---
 

@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies and add TypeScript as a dev dependency
+RUN npm install && npm install --save-dev typescript@4.9.5
 
 # Copy source code
 COPY . .

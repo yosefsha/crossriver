@@ -1,27 +1,38 @@
 
+import { Test, TestingModule } from '@nestjs/testing';
 import { OrchestratorService } from './orchestrator.service';
 import { BedrockService } from '../agent/bedrock.service';
+import { ClassificationService } from '../classification/classification.service';
 import { ConfigService } from '@nestjs/config';
 import { QueryAnalysis } from './types/orchestrator.types';
 
 describe('OrchestratorService - Delegation Logic (With Real BedrockService)', () => {
   let orchestrator: OrchestratorService;
   let bedrockService: BedrockService;
+  let classificationService: ClassificationService;
   let configService: ConfigService;
   let analyzeSpy: jest.SpyInstance;
 
   // Increase the test timeout to 30 seconds to allow for real API calls
   jest.setTimeout(30000);
 
-  beforeAll(() => {
-    // Set up a real ConfigService
-    configService = new ConfigService();
+  beforeAll(async () => {
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      providers: [
+        OrchestratorService,
+        BedrockService,
+        ClassificationService,
+        {
+          provide: ConfigService,
+          useValue: new ConfigService(),
+        }
+      ],
+    }).compile();
     
-    // Set up a real BedrockService with ConfigService
-    bedrockService = new BedrockService(configService);
-    
-    // Create an orchestrator with the real BedrockService
-    orchestrator = new OrchestratorService(bedrockService);
+    // Get service instances
+    orchestrator = moduleRef.get<OrchestratorService>(OrchestratorService);
+    bedrockService = moduleRef.get<BedrockService>(BedrockService);
+    classificationService = moduleRef.get<ClassificationService>(ClassificationService);
     
     // Spy on the private analyzeQuery method to verify routing logic
     analyzeSpy = jest.spyOn(orchestrator as any, 'analyzeQuery');
@@ -100,7 +111,10 @@ describe('OrchestratorService - Delegation Logic (With Real BedrockService)', ()
       // Reset the spy for each test to isolate calls
       analyzeSpy.mockClear();
       
-      // Test with the real analyzeQuery implementation
+      // Spy on the classification service to check if it's being called
+      const classifySpy = jest.spyOn(classificationService, 'classifyQuery');
+      
+      // Test with the real analyzeQuery implementation with a real ClassificationService
       const sessionId = `test-session-${Math.random().toString(36).substr(2, 8)}`;
       
       // First directly call the analyzeQuery method to test routing logic
@@ -110,6 +124,7 @@ describe('OrchestratorService - Delegation Logic (With Real BedrockService)', ()
       console.log(`Query: "${prompt}"`);
       console.log(`Expected agent: ${expectedAgent}, Actual selected agent: ${analysis.selected_agent}`);
       console.log(`Confidence scores:`, analysis.confidence_scores);
+      console.log(`Classification service was called: ${classifySpy.mock.calls.length > 0}`);
       
       // Verify that analyzeQuery was called once with the correct prompt
       expect(analyzeSpy).toHaveBeenCalledWith(prompt);
@@ -133,13 +148,17 @@ describe('OrchestratorService - Delegation Logic (With Real BedrockService)', ()
     const expectedAgent = 'data-scientist';
     const sessionId = `test-session-${Math.random().toString(36).substr(2, 8)}`;
     
-    // Call the actual orchestrateQuery method which uses the real BedrockService
+    // Spy on the classification service to check if it's being called
+    const classifySpy = jest.spyOn(classificationService, 'classifyQuery');
+    
+    // Call the actual orchestrateQuery method which uses the real BedrockService and ClassificationService
     const result = await orchestrator.orchestrateQuery(query, sessionId);
     
     // Log the result for debugging
     console.log(`Full orchestration result for query: "${query}"`);
     console.log(`Selected agent: ${result.handling_agent}`);
     console.log(`Agent name: ${result.agent_name}`);
+    console.log(`Classification service was called: ${classifySpy.mock.calls.length > 0}`);
     console.log(`Routing analysis: `, result.routing_analysis);
     
     // Verify the orchestration worked with real BedrockService
